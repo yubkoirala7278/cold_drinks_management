@@ -70,7 +70,8 @@
 
 @push('scripts')
     <!-- Use a more compatible jQuery version for Android 7 WebView -->
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+        integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
     <!-- Polyfill for older browsers -->
     <script src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js"></script>
@@ -79,7 +80,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Setup CSRF token for all AJAX requests
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            
+            let typingTimer;
+            const doneTypingInterval = 3000; // 1 second delay
+
             // Helper function to toggle visibility
             function toggleElement(element, show) {
                 element.classList.toggle('d-none', !show);
@@ -119,7 +122,8 @@
                     .then(batches => {
                         let options = '<option value="">Select Batch</option>';
                         batches.forEach(batch => {
-                            options += `<option value="${batch.id}">${batch.batch_number} (Prod: ${batch.production_date}, Exp: ${batch.expiry_date})</option>`;
+                            options +=
+                                `<option value="${batch.id}">${batch.batch_number} (Prod: ${batch.production_date}, Exp: ${batch.expiry_date})</option>`;
                         });
                         batchSelect.innerHTML = options;
                         batchSelect.disabled = false;
@@ -148,54 +152,91 @@
                 toggleElement(productForm, false);
 
                 // Set current product/batch info
-                document.getElementById('currentProduct').textContent = productSelect.options[productSelect.selectedIndex].text;
-                document.getElementById('currentBatch').textContent = batchSelect.options[batchSelect.selectedIndex].text;
+                document.getElementById('currentProduct').textContent = productSelect.options[productSelect
+                    .selectedIndex].text;
+                document.getElementById('currentBatch').textContent = batchSelect.options[batchSelect
+                    .selectedIndex].text;
 
                 // Focus on barcode input
                 document.getElementById('barcode').focus();
             });
 
-            // Handle barcode scanning
+            // Handle barcode scanning with delay
             const barcodeInput = document.getElementById('barcode');
-            barcodeInput.addEventListener('change', function() {
-                const barcode = this.value;
+
+            // On keyup, start the countdown
+            barcodeInput.addEventListener('keyup', function() {
+                clearTimeout(typingTimer);
+                if (barcodeInput.value) {
+                    typingTimer = setTimeout(findLocation, doneTypingInterval);
+                }
+            });
+
+            // On keydown, clear the countdown
+            barcodeInput.addEventListener('keydown', function() {
+                clearTimeout(typingTimer);
+            });
+
+            // Function to find location
+            function findLocation() {
+                const barcode = barcodeInput.value;
                 if (!barcode) return;
 
                 const productId = productSelect.value;
                 const batchId = batchSelect.value;
 
+                // Clear previous messages
+                toggleElement(errorInfo, false);
+                toggleElement(locationInfo, false);
+                toggleElement(doneButton, false);
+
+                // Show loading state
+                errorInfo.textContent = 'Checking barcode...';
+                toggleElement(errorInfo, true);
+
                 // Find location for this barcode
                 ajaxRequest('POST', '/warehouse/find-location', {
-                    product_id: productId,
-                    batch_id: batchId,
-                    barcode: barcode
-                })
-                .then(response => {
-                    const errorInfo = document.getElementById('errorInfo');
-                    const locationInfo = document.getElementById('locationInfo');
-                    const doneButton = document.getElementById('doneButton');
+                        product_id: productId,
+                        batch_id: batchId,
+                        barcode: barcode
+                    })
+                    .then(response => {
+                        if (response.error) {
+                            if (response.barcode_exists) {
+                                errorInfo.textContent =
+                                    'Error: This barcode already exists in the system. Please scan a different barcode.';
+                            } else if (response.no_location) {
+                                errorInfo.textContent =
+                                    'Error: No available locations found for this product. Please contact warehouse management.';
+                            } else {
+                                errorInfo.textContent = response.error;
+                            }
+                            toggleElement(errorInfo, true);
+                            toggleElement(locationInfo, false);
+                            toggleElement(doneButton, false);
 
-                    if (response.error) {
-                        errorInfo.textContent = response.error;
+                            // Clear the barcode field and focus for new input
+                            barcodeInput.value = '';
+                            barcodeInput.focus();
+                        } else if (response.barcode_valid) {
+                            document.getElementById('locationText').textContent = response.location;
+                            toggleElement(errorInfo, false);
+                            toggleElement(locationInfo, true);
+                            doneButton.dataset.locationId = response.location_id;
+                            toggleElement(doneButton, true);
+                        }
+                    })
+                    .catch(error => {
+                        errorInfo.textContent = error.message || 'Error processing barcode. Please try again.';
                         toggleElement(errorInfo, true);
                         toggleElement(locationInfo, false);
                         toggleElement(doneButton, false);
-                    } else {
-                        document.getElementById('locationText').textContent = response.location;
-                        toggleElement(locationInfo, true);
-                        toggleElement(errorInfo, false);
-                        doneButton.dataset.locationId = response.location_id;
-                        toggleElement(doneButton, true);
-                    }
-                })
-                .catch(error => {
-                    const errorInfo = document.getElementById('errorInfo');
-                    errorInfo.textContent = error.message || 'Error processing barcode';
-                    toggleElement(errorInfo, true);
-                    toggleElement(document.getElementById('locationInfo'), false);
-                    toggleElement(document.getElementById('doneButton'), false);
-                });
-            });
+
+                        // Clear the barcode field and focus for new input
+                        barcodeInput.value = '';
+                        barcodeInput.focus();
+                    });
+            }
 
             // Handle done button click
             const doneButton = document.getElementById('doneButton');
@@ -209,21 +250,21 @@
 
                 // Store the item
                 ajaxRequest('POST', '/warehouse/store-item', {
-                    product_id: productId,
-                    batch_id: batchId,
-                    barcode: barcode,
-                    location_id: locationId
-                })
-                .then(() => {
-                    // Clear barcode and focus for next scan
-                    barcodeInput.value = '';
-                    barcodeInput.focus();
-                    toggleElement(document.getElementById('locationInfo'), false);
-                    toggleElement(doneButton, false);
-                })
-                .catch(error => {
-                    alert(error.message || 'Error storing item');
-                });
+                        product_id: productId,
+                        batch_id: batchId,
+                        barcode: barcode,
+                        location_id: locationId
+                    })
+                    .then(() => {
+                        // Clear barcode and focus for next scan
+                        barcodeInput.value = '';
+                        barcodeInput.focus();
+                        toggleElement(document.getElementById('locationInfo'), false);
+                        toggleElement(doneButton, false);
+                    })
+                    .catch(error => {
+                        alert(error.message || 'Error storing item');
+                    });
             });
 
             // Handle back button

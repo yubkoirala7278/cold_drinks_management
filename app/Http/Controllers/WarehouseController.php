@@ -35,26 +35,33 @@ class WarehouseController extends Controller
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'batch_id' => 'required|exists:batches,id',
-            'barcode' => 'required|unique:items,barcode'
+            'barcode' => 'required'
         ]);
-
-        $product = Product::findOrFail($request->product_id);
 
         // First check if barcode already exists
         if (Item::where('barcode', $request->barcode)->exists()) {
-            return response()->json(['error' => 'Barcode already exists'], 400);
+            return response()->json([
+                'error' => 'Barcode already exists in the system',
+                'barcode_exists' => true
+            ], 400);
         }
+
+        $product = Product::findOrFail($request->product_id);
 
         // Find best location for the product
         $location = $this->findBestLocation($product);
 
         if (!$location) {
-            return response()->json(['error' => 'No available locations found'], 404);
+            return response()->json([
+                'error' => 'No available locations found for this product',
+                'no_location' => true
+            ], 404);
         }
 
         return response()->json([
             'location' => $location->level . $location->height . '-S' . str_pad($location->depth, 2, '0', STR_PAD_LEFT),
-            'location_id' => $location->id
+            'location_id' => $location->id,
+            'barcode_valid' => true
         ]);
     }
 
