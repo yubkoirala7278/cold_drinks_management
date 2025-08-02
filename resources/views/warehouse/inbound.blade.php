@@ -81,7 +81,7 @@
             // Setup CSRF token for all AJAX requests
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             let typingTimer;
-            const doneTypingInterval = 3000; // 1 second delay
+            const doneTypingInterval = 10; // 10 milli second
 
             // Helper function to toggle visibility
             function toggleElement(element, show) {
