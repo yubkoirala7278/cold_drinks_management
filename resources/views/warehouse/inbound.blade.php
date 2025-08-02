@@ -17,7 +17,7 @@
                 <div id="productSelectionCard" class="card shadow-sm border-0">
                     <div class="card-body p-4">
                         <h5 class="card-title mb-4">Select Product & Batch</h5>
-                        
+
                         <form id="productForm">
                             <!-- Product Selection -->
                             <div class="mb-4">
@@ -47,6 +47,7 @@
                                 <i class="bi bi-upc-scan me-2"></i> Start Scanning
                             </button>
                         </form>
+                     
                     </div>
                 </div>
 
@@ -72,7 +73,8 @@
                                 <span class="input-group-text bg-light">
                                     <i class="bi bi-upc"></i>
                                 </span>
-                                <input type="text" class="form-control" id="barcode" placeholder="Scan or enter barcode" autofocus>
+                                <input type="text" class="form-control" id="barcode"
+                                    placeholder="Scan or enter barcode" autofocus>
                             </div>
                             <div class="form-text">Scan the product barcode to continue</div>
                         </div>
@@ -101,7 +103,7 @@
                             <button id="doneButton" class="btn btn-success btn-lg py-3 d-none">
                                 <i class="bi bi-check-circle-fill me-2"></i> Confirm Placement
                             </button>
-                            
+
                             <button id="backButton" class="btn btn-outline-secondary btn-lg py-3">
                                 <i class="bi bi-arrow-left me-2"></i> Back to Selection
                             </button>
@@ -125,23 +127,32 @@
         .card {
             border-radius: 12px;
         }
-        
-        .form-select-lg, .input-group-lg .form-control {
+
+        .form-select-lg,
+        .input-group-lg .form-control {
             font-size: 1rem;
             padding: 0.75rem 1rem;
         }
-        
+
         .alert {
             border-radius: 10px;
         }
-        
+
         /* Animation for scanning feedback */
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
-        
+
         .scanning-active {
             animation: pulse 1.5s infinite;
             box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
@@ -195,7 +206,7 @@
                 toggleElement(errorInfo, true);
                 toggleElement(locationInfo, false);
                 toggleElement(doneButton, false);
-                
+
                 // Add visual feedback to input
                 barcodeInput.classList.add('is-invalid');
                 setTimeout(() => {
@@ -231,28 +242,31 @@
                 const productId = this.value;
                 batchSelect.innerHTML = '<option value="" selected disabled>Select Batch</option>';
                 batchSelect.disabled = true;
-                
+
                 if (!productId) return;
 
                 // Show loading state
                 batchSelect.disabled = true;
                 const selectedOption = productSelect.options[productSelect.selectedIndex];
                 const volume = selectedOption.dataset.volume;
-                
+
                 ajaxRequest('GET', `/warehouse/batches/${productId}`)
                     .then(batches => {
                         let options = '<option value="" selected disabled>Select Batch</option>';
                         batches.forEach(batch => {
-                            const prodDate = new Date(batch.production_date).toLocaleDateString();
+                            const prodDate = new Date(batch.production_date)
+                                .toLocaleDateString();
                             const expDate = new Date(batch.expiry_date).toLocaleDateString();
-                            options += `<option value="${batch.id}">${batch.batch_number} (Prod: ${prodDate}, Exp: ${expDate})</option>`;
+                            options +=
+                                `<option value="${batch.id}">${batch.batch_number} (Prod: ${prodDate}, Exp: ${expDate})</option>`;
                         });
                         batchSelect.innerHTML = options;
                         batchSelect.disabled = false;
                     })
                     .catch(error => {
                         console.error('Error loading batches:', error);
-                        batchSelect.innerHTML = '<option value="" selected disabled>Error loading batches</option>';
+                        batchSelect.innerHTML =
+                            '<option value="" selected disabled>Error loading batches</option>';
                         batchSelect.disabled = true;
                     });
             });
@@ -272,10 +286,12 @@
                 toggleElement(productSelectionCard, false);
                 toggleElement(scanningCard, true);
                 progressStep.textContent = '2';
-                
+
                 // Set current product/batch info
-                document.getElementById('currentProduct').textContent = productSelect.options[productSelect.selectedIndex].text;
-                document.getElementById('currentBatch').textContent = batchSelect.options[batchSelect.selectedIndex].text;
+                document.getElementById('currentProduct').textContent = productSelect.options[productSelect
+                    .selectedIndex].text;
+                document.getElementById('currentBatch').textContent = batchSelect.options[batchSelect
+                    .selectedIndex].text;
 
                 // Focus on barcode input
                 barcodeInput.focus();
@@ -287,7 +303,7 @@
                 if (barcodeInput.value.trim()) {
                     // Add scanning feedback
                     barcodeInput.classList.add('scanning-active');
-                    
+
                     typingTimer = setTimeout(() => {
                         barcodeInput.classList.remove('scanning-active');
                         findLocation();
@@ -304,7 +320,7 @@
                 const batchId = batchSelect.value;
 
                 clearErrors();
-                
+
                 // Show loading state
                 showError('Checking barcode...');
 
@@ -331,7 +347,7 @@
                             toggleElement(locationInfo, true);
                             doneButton.dataset.locationId = response.location_id;
                             toggleElement(doneButton, true);
-                            
+
                             // Auto-focus the done button for quick confirmation
                             doneButton.focus();
                         }
@@ -347,35 +363,32 @@
             doneButton.addEventListener('click', function() {
                 const locationId = this.dataset.locationId;
                 const barcode = barcodeInput.value.trim();
-                const productId = productSelect.value;
-                const batchId = batchSelect.value;
 
-                if (!locationId || !barcode) return;
-
-                // Store the item
                 ajaxRequest('POST', '/warehouse/store-item', {
-                        product_id: productId,
-                        batch_id: batchId,
+                        product_id: productSelect.value,
+                        batch_id: batchSelect.value,
                         barcode: barcode,
                         location_id: locationId
                     })
-                    .then(() => {
-                        // Success feedback
-                        locationInfo.classList.add('alert-success');
-                        locationInfo.classList.remove('alert-info');
-                        
-                        // Update session count
-                        sessionCount++;
-                        sessionCountElement.textContent = sessionCount;
-                        
-                        // Reset for next scan
-                        barcodeInput.value = '';
-                        barcodeInput.focus();
-                        toggleElement(locationInfo, false);
-                        toggleElement(doneButton, false);
+                    .then(response => {
+                        if (response.success) {
+                            // Update SESSION counter
+                            sessionCount += response.stats.session_increment;
+                            document.getElementById('sessionCount').textContent = sessionCount;
+
+                            // Update TODAY'S counter (from server)
+                            const todayCounter = document.querySelector(
+                                '.text-muted strong:first-child');
+                            todayCounter.textContent = response.stats.today_inbound;
+
+                            // Reset for next scan
+                            barcodeInput.value = '';
+                            toggleElement(locationInfo, false);
+                            barcodeInput.focus();
+                        }
                     })
                     .catch(error => {
-                        showError(error.message || 'Error storing item');
+                        showError('Failed to save: ' + (error.message || 'Unknown error'));
                     });
             });
 
@@ -384,12 +397,12 @@
                 toggleElement(scanningCard, false);
                 toggleElement(productSelectionCard, true);
                 progressStep.textContent = '1';
-                
+
                 // Reset scanning state
                 barcodeInput.value = '';
                 clearErrors();
                 toggleElement(doneButton, false);
-                
+
                 // Focus back on product select
                 productSelect.focus();
             });

@@ -21,7 +21,14 @@ class WarehouseController extends Controller
     public function inbound()
     {
         $products = Product::with('batches')->get();
-        return view('warehouse.inbound', compact('products'));
+
+        // Add today's inbound count
+        $todayInboundCount = Inventory::whereDate('placed_at', today())->count();
+
+        return view('warehouse.inbound', [
+            'products' => $products,
+            'todayInboundCount' => $todayInboundCount
+        ]);
     }
 
     public function getBatches($productId)
@@ -43,7 +50,7 @@ class WarehouseController extends Controller
             return response()->json([
                 'error' => 'Barcode already exists in the system',
                 'barcode_exists' => true
-            ], 400);
+            ], 200);
         }
 
         $product = Product::findOrFail($request->product_id);
@@ -55,7 +62,7 @@ class WarehouseController extends Controller
             return response()->json([
                 'error' => 'No available locations found for this product',
                 'no_location' => true
-            ], 404);
+            ], 200);
         }
 
         return response()->json([
@@ -89,22 +96,31 @@ class WarehouseController extends Controller
             ]);
         });
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'stats' => [
+                'today_inbound' => Inventory::whereDate('placed_at', today())->count(),
+                'session_increment' => 1 // Frontend will add this
+            ]
+        ]);
     }
 
     public function outbound()
     {
         $products = Product::all();
-        return view('warehouse.outbound', compact('products'));
+        $todayOutboundCount = Inventory::whereDate('removed_at', today())->count();
+
+        return view('warehouse.outbound', [
+            'products' => $products,
+            'todayOutboundCount' => $todayOutboundCount
+        ]);
     }
 
     public function getNextItem(Request $request)
     {
-        $request->validate([
-            'product_id' => 'required|exists:products,id'
-        ]);
+        $request->validate(['product_id' => 'required|exists:products,id']);
 
-        // Find the oldest item for this product
+        // Find the next available item
         $inventory = Inventory::whereHas('item.batch', function ($query) use ($request) {
             $query->where('product_id', $request->product_id);
         })
@@ -113,13 +129,23 @@ class WarehouseController extends Controller
             ->first();
 
         if (!$inventory) {
-            return response()->json(['error' => 'No items available for this product'], 404);
+            return response()->json([
+                'error' => 'No items available for this product',
+                'no_items' => true
+            ], 200);
         }
 
+        // Check if this is the last item in its location
+        $location = $inventory->location;
+        $itemsInLocation = Inventory::where('location_id', $location->id)
+            ->whereNull('removed_at')
+            ->count();
+
         return response()->json([
-            'location' => $inventory->location->level . $inventory->location->height . '-S' . str_pad($inventory->location->depth, 2, '0', STR_PAD_LEFT),
+            'location' => $location->level . $location->height . '-S' . str_pad($location->depth, 2, '0', STR_PAD_LEFT),
             'barcode' => $inventory->item->barcode,
-            'location_id' => $inventory->location_id
+            'location_id' => $location->id,
+            'is_last_in_location' => ($itemsInLocation === 1)
         ]);
     }
 
@@ -147,21 +173,12 @@ class WarehouseController extends Controller
             $this->shiftItemsForward($location);
         });
 
-        return response()->json(['success' => true]);
-    }
-
-    private function getNextItemAtLocation($locationId)
-    {
-        $location = Location::findOrFail($locationId);
-
-        return Inventory::whereHas('location', function ($query) use ($location) {
-            $query->where('level', $location->level)
-                ->where('height', $location->height)
-                ->where('depth', $location->depth);
-        })
-            ->whereNull('removed_at')
-            ->orderBy('placed_at')
-            ->first();
+        return response()->json([
+            'success' => true,
+            'stats' => [
+                'today_outbound' => Inventory::whereDate('removed_at', today())->count()
+            ]
+        ]);
     }
 
 
