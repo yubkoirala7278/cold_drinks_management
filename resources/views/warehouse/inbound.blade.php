@@ -69,123 +69,171 @@
 @endsection
 
 @push('scripts')
+    <!-- Use a more compatible jQuery version for Android 7 WebView -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+    <!-- Polyfill for older browsers -->
+    <script src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js"></script>
+
     <script>
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', function() {
             // Setup CSRF token for all AJAX requests
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
+            // Helper function to toggle visibility
+            function toggleElement(element, show) {
+                element.classList.toggle('d-none', !show);
+            }
+
+            // Helper function for AJAX requests
+            function ajaxRequest(method, url, data) {
+                return fetch(url, {
+                    method: method,
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: data ? JSON.stringify(data) : undefined
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error(response.statusText);
+                    }
+                    return response.json();
+                });
+            }
+
             // Load batches when product is selected
-            $('#product').change(function() {
-                const productId = $(this).val();
+            const productSelect = document.getElementById('product');
+            const batchSelect = document.getElementById('batch');
+
+            productSelect.addEventListener('change', function() {
+                const productId = this.value;
                 if (!productId) {
-                    $('#batch').html('<option value="">Select Batch</option>').prop('disabled', true);
+                    batchSelect.innerHTML = '<option value="">Select Batch</option>';
+                    batchSelect.disabled = true;
                     return;
                 }
 
-                $.get(`/warehouse/batches/${productId}`, function(batches) {
-                    let options = '<option value="">Select Batch</option>';
-                    batches.forEach(batch => {
-                        options +=
-                            `<option value="${batch.id}">${batch.batch_number} (Prod: ${batch.production_date}, Exp: ${batch.expiry_date})</option>`;
+                ajaxRequest('GET', `/warehouse/batches/${productId}`)
+                    .then(batches => {
+                        let options = '<option value="">Select Batch</option>';
+                        batches.forEach(batch => {
+                            options += `<option value="${batch.id}">${batch.batch_number} (Prod: ${batch.production_date}, Exp: ${batch.expiry_date})</option>`;
+                        });
+                        batchSelect.innerHTML = options;
+                        batchSelect.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Error loading batches:', error);
+                        batchSelect.innerHTML = '<option value="">Error loading batches</option>';
+                        batchSelect.disabled = true;
                     });
-                    $('#batch').html(options).prop('disabled', false);
-                });
             });
 
             // Handle product form submission
-            $('#productForm').submit(function(e) {
+            const productForm = document.getElementById('productForm');
+            productForm.addEventListener('submit', function(e) {
                 e.preventDefault();
 
-                const productId = $('#product').val();
-                const batchId = $('#batch').val();
+                const productId = productSelect.value;
+                const batchId = batchSelect.value;
 
                 if (!productId || !batchId) {
                     return;
                 }
 
                 // Show scanning section
-                $('#scanningSection').removeClass('d-none');
-                $('#productForm').addClass('d-none');
+                toggleElement(document.getElementById('scanningSection'), true);
+                toggleElement(productForm, false);
 
                 // Set current product/batch info
-                $('#currentProduct').text($('#product option:selected').text());
-                $('#currentBatch').text($('#batch option:selected').text());
+                document.getElementById('currentProduct').textContent = productSelect.options[productSelect.selectedIndex].text;
+                document.getElementById('currentBatch').textContent = batchSelect.options[batchSelect.selectedIndex].text;
 
                 // Focus on barcode input
-                $('#barcode').focus();
+                document.getElementById('barcode').focus();
             });
 
             // Handle barcode scanning
-            $('#barcode').change(function() {
-                const barcode = $(this).val();
+            const barcodeInput = document.getElementById('barcode');
+            barcodeInput.addEventListener('change', function() {
+                const barcode = this.value;
                 if (!barcode) return;
 
-                const productId = $('#product').val();
-                const batchId = $('#batch').val();
+                const productId = productSelect.value;
+                const batchId = batchSelect.value;
 
                 // Find location for this barcode
-                $.post('/warehouse/find-location', {
+                ajaxRequest('POST', '/warehouse/find-location', {
                     product_id: productId,
                     batch_id: batchId,
                     barcode: barcode
-                }, function(response) {
-                    if (response.error) {
-                        $('#errorInfo').text(response.error).removeClass('d-none');
-                        $('#locationInfo').addClass('d-none');
-                        $('#doneButton').addClass('d-none');
-                    } else {
-                        $('#locationText').text(response.location);
-                        $('#locationInfo').removeClass('d-none');
-                        $('#errorInfo').addClass('d-none');
+                })
+                .then(response => {
+                    const errorInfo = document.getElementById('errorInfo');
+                    const locationInfo = document.getElementById('locationInfo');
+                    const doneButton = document.getElementById('doneButton');
 
-                        // Store the location ID in the done button
-                        $('#doneButton').data('location-id', response.location_id).removeClass(
-                            'd-none');
+                    if (response.error) {
+                        errorInfo.textContent = response.error;
+                        toggleElement(errorInfo, true);
+                        toggleElement(locationInfo, false);
+                        toggleElement(doneButton, false);
+                    } else {
+                        document.getElementById('locationText').textContent = response.location;
+                        toggleElement(locationInfo, true);
+                        toggleElement(errorInfo, false);
+                        doneButton.dataset.locationId = response.location_id;
+                        toggleElement(doneButton, true);
                     }
-                }).fail(function(xhr) {
-                    $('#errorInfo').text(xhr.responseJSON?.error || 'Error processing barcode')
-                        .removeClass('d-none');
-                    $('#locationInfo').addClass('d-none');
-                    $('#doneButton').addClass('d-none');
+                })
+                .catch(error => {
+                    const errorInfo = document.getElementById('errorInfo');
+                    errorInfo.textContent = error.message || 'Error processing barcode';
+                    toggleElement(errorInfo, true);
+                    toggleElement(document.getElementById('locationInfo'), false);
+                    toggleElement(document.getElementById('doneButton'), false);
                 });
             });
 
             // Handle done button click
-            $('#doneButton').click(function() {
-                const locationId = $(this).data('location-id');
-                const barcode = $('#barcode').val();
-                const productId = $('#product').val();
-                const batchId = $('#batch').val();
+            const doneButton = document.getElementById('doneButton');
+            doneButton.addEventListener('click', function() {
+                const locationId = this.dataset.locationId;
+                const barcode = barcodeInput.value;
+                const productId = productSelect.value;
+                const batchId = batchSelect.value;
 
                 if (!locationId || !barcode) return;
 
                 // Store the item
-                $.post('/warehouse/store-item', {
+                ajaxRequest('POST', '/warehouse/store-item', {
                     product_id: productId,
                     batch_id: batchId,
                     barcode: barcode,
                     location_id: locationId
-                }, function() {
+                })
+                .then(() => {
                     // Clear barcode and focus for next scan
-                    $('#barcode').val('').focus();
-                    $('#locationInfo').addClass('d-none');
-                    $('#doneButton').addClass('d-none');
-                }).fail(function(xhr) {
-                    alert(xhr.responseJSON?.error || 'Error storing item');
+                    barcodeInput.value = '';
+                    barcodeInput.focus();
+                    toggleElement(document.getElementById('locationInfo'), false);
+                    toggleElement(doneButton, false);
+                })
+                .catch(error => {
+                    alert(error.message || 'Error storing item');
                 });
             });
 
             // Handle back button
-            $('#backButton').click(function() {
-                $('#scanningSection').addClass('d-none');
-                $('#productForm').removeClass('d-none');
-                $('#barcode').val('');
-                $('#locationInfo').addClass('d-none');
-                $('#errorInfo').addClass('d-none');
-                $('#doneButton').addClass('d-none');
+            document.getElementById('backButton').addEventListener('click', function() {
+                toggleElement(document.getElementById('scanningSection'), false);
+                toggleElement(productForm, true);
+                barcodeInput.value = '';
+                toggleElement(document.getElementById('locationInfo'), false);
+                toggleElement(document.getElementById('errorInfo'), false);
+                toggleElement(doneButton, false);
             });
         });
     </script>
