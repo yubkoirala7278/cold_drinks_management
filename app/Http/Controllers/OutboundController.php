@@ -150,7 +150,7 @@ class OutboundController extends Controller
             ->where('locations.depth', '<', $location->depth)
             ->whereNull('inventories.removed_at')
             ->orderByDesc('locations.depth')
-            ->with('location') // Eager load location relationship
+            ->with('location')
             ->get();
 
         foreach ($itemsToShift as $inventory) {
@@ -164,6 +164,26 @@ class OutboundController extends Controller
             if ($newLocation) {
                 $inventory->update(['location_id' => $newLocation->id]);
             }
+        }
+
+        // Check if the column is now empty
+        $this->clearSkuIfColumnEmpty($location);
+    }
+
+    private function clearSkuIfColumnEmpty(Location $location)
+    {
+        $hasItems = Inventory::whereHas('location', function ($q) use ($location) {
+            $q->where('level', $location->level)
+                ->where('height', $location->height);
+        })
+            ->whereNull('removed_at')
+            ->exists();
+
+        if (!$hasItems) {
+            // Clear SKU assignment for the entire column
+            Location::where('level', $location->level)
+                ->where('height', $location->height)
+                ->update(['current_sku' => null]);
         }
     }
 
