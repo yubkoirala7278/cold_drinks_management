@@ -27,25 +27,5 @@ class LocationsSeeder extends Seeder
                 }
             }
         }
-
-        // Reserve some locations for Coca-Cola 500ml
-        $coke500 = \App\Models\Product::where('sku', 'CC-500')->first();
-
-        Location::where('level', 'A')
-            ->where('height', 1)
-            ->update([
-                'product_id' => $coke500->id,
-                'reserved' => true
-            ]);
-
-        // Reserve some locations for Fanta 500ml
-        $fanta500 = \App\Models\Product::where('sku', 'FA-500')->first();
-
-        Location::where('level', 'B')
-            ->where('height', 1)
-            ->update([
-                'product_id' => $fanta500->id,
-                'reserved' => true
-            ]);
     }
 }

@@ -1,6 +1,68 @@
 <!-- resources/views/warehouse/inbound.blade.php -->
 @extends('layouts.mobile')
 
+@push('styles')
+    <style>
+        /* Custom styles for better mobile experience */
+        .card {
+            border-radius: 12px;
+        }
+
+        .form-select-lg,
+        .input-group-lg .form-control {
+            font-size: 1rem;
+            padding: 0.75rem 1rem;
+        }
+
+        .alert {
+            border-radius: 10px;
+        }
+
+        /* Animation for scanning feedback */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .scanning-active {
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
+        }
+
+        /* Improved mobile input */
+        #barcode {
+            font-size: 1.1rem;
+            padding: 12px 15px;
+            height: 50px;
+        }
+
+        /* Better mobile alerts */
+        .swal2-popup {
+            font-size: 1rem !important;
+            width: 95% !important;
+            max-width: 340px !important;
+            padding: 1.2rem !important;
+        }
+
+        /* Larger buttons for mobile */
+        .swal2-confirm,
+        .swal2-cancel {
+            padding: 10px 20px !important;
+            margin: 0 5px !important;
+            font-size: 1rem !important;
+        }
+    </style>
+@endpush
+
 @section('content')
     <div class="container py-3">
         <div class="row justify-content-center">
@@ -47,7 +109,7 @@
                                 <i class="bi bi-upc-scan me-2"></i> Start Scanning
                             </button>
                         </form>
-                     
+
                     </div>
                 </div>
 
@@ -121,44 +183,7 @@
     </div>
 @endsection
 
-@push('styles')
-    <style>
-        /* Custom styles for better mobile experience */
-        .card {
-            border-radius: 12px;
-        }
 
-        .form-select-lg,
-        .input-group-lg .form-control {
-            font-size: 1rem;
-            padding: 0.75rem 1rem;
-        }
-
-        .alert {
-            border-radius: 10px;
-        }
-
-        /* Animation for scanning feedback */
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.02);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        .scanning-active {
-            animation: pulse 1.5s infinite;
-            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
-        }
-    </style>
-@endpush
 
 @push('scripts')
     <!-- Use a more compatible jQuery version for Android 7 WebView -->
@@ -172,52 +197,60 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+
             // Setup CSRF token for all AJAX requests
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             let typingTimer;
-            const doneTypingInterval = 500; // 500ms delay after typing
+            const doneTypingInterval = 800; // Slightly longer delay for mobile users
             let sessionCount = 0;
+
+            function toggleElement(element, show) {
+                if (element) {
+                    if (show) {
+                        element.classList.remove('d-none');
+                    } else {
+                        element.classList.add('d-none');
+                    }
+                }
+            }
 
             // DOM Elements
             const productSelect = document.getElementById('product');
             const batchSelect = document.getElementById('batch');
             const productForm = document.getElementById('productForm');
             const barcodeInput = document.getElementById('barcode');
-            const doneButton = document.getElementById('doneButton');
-            const locationInfo = document.getElementById('locationInfo');
-            const errorInfo = document.getElementById('errorInfo');
-            const errorMessage = document.getElementById('errorMessage');
             const progressStep = document.getElementById('progressStep');
             const productSelectionCard = document.getElementById('productSelectionCard');
             const scanningCard = document.getElementById('scanningCard');
             const sessionCountElement = document.getElementById('sessionCount');
 
-            // Helper functions
-            function toggleElement(element, show) {
-                if (show) {
-                    element.classList.remove('d-none');
-                } else {
-                    element.classList.add('d-none');
-                }
-            }
-
-            function showError(message) {
-                errorMessage.textContent = message;
-                toggleElement(errorInfo, true);
-                toggleElement(locationInfo, false);
-                toggleElement(doneButton, false);
-
-                // Add visual feedback to input
-                barcodeInput.classList.add('is-invalid');
+            // Mobile UX Improvements
+            function focusWithMobileKeyboard(element) {
+                element.focus();
+                // For Android devices to properly show keyboard
                 setTimeout(() => {
-                    barcodeInput.classList.remove('is-invalid');
-                }, 2000);
+                    element.focus();
+                }, 100);
             }
 
-            function clearErrors() {
-                toggleElement(errorInfo, false);
-                toggleElement(locationInfo, false);
-                barcodeInput.classList.remove('is-invalid');
+            // SweetAlert 2 configuration
+            const Swal = window.Swal;
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+
+            // Helper functions
+            function resetScanningState() {
+                barcodeInput.value = '';
+                focusWithMobileKeyboard(barcodeInput);
             }
 
             function ajaxRequest(method, url, data) {
@@ -240,15 +273,10 @@
             // Load batches when product is selected
             productSelect.addEventListener('change', function() {
                 const productId = this.value;
-                batchSelect.innerHTML = '<option value="" selected disabled>Select Batch</option>';
+                batchSelect.innerHTML = '<option value="" selected disabled>Loading batches...</option>';
                 batchSelect.disabled = true;
 
                 if (!productId) return;
-
-                // Show loading state
-                batchSelect.disabled = true;
-                const selectedOption = productSelect.options[productSelect.selectedIndex];
-                const volume = selectedOption.dataset.volume;
 
                 ajaxRequest('GET', `/warehouse/batches/${productId}`)
                     .then(batches => {
@@ -264,10 +292,12 @@
                         batchSelect.disabled = false;
                     })
                     .catch(error => {
-                        console.error('Error loading batches:', error);
                         batchSelect.innerHTML =
                             '<option value="" selected disabled>Error loading batches</option>';
-                        batchSelect.disabled = true;
+                        Toast.fire({
+                            icon: 'error',
+                            title: 'Failed to load batches'
+                        });
                     });
             });
 
@@ -278,7 +308,10 @@
                 const batchId = batchSelect.value;
 
                 if (!productId || !batchId) {
-                    showError('Please select both product and batch');
+                    Toast.fire({
+                        icon: 'error',
+                        title: 'Please select both product and batch'
+                    });
                     return;
                 }
 
@@ -293,36 +326,40 @@
                 document.getElementById('currentBatch').textContent = batchSelect.options[batchSelect
                     .selectedIndex].text;
 
-                // Focus on barcode input
-                barcodeInput.focus();
+                // Focus on barcode input with mobile keyboard
+                focusWithMobileKeyboard(barcodeInput);
             });
 
             // Handle barcode scanning with delay
             barcodeInput.addEventListener('input', function() {
                 clearTimeout(typingTimer);
                 if (barcodeInput.value.trim()) {
-                    // Add scanning feedback
+                    // Add visual feedback
                     barcodeInput.classList.add('scanning-active');
 
                     typingTimer = setTimeout(() => {
                         barcodeInput.classList.remove('scanning-active');
-                        findLocation();
+                        processBarcode();
                     }, doneTypingInterval);
                 }
             });
 
-            // Function to find location
-            function findLocation() {
+            // Process barcode function
+            function processBarcode() {
                 const barcode = barcodeInput.value.trim();
                 if (!barcode) return;
 
                 const productId = productSelect.value;
                 const batchId = batchSelect.value;
 
-                clearErrors();
-
                 // Show loading state
-                showError('Checking barcode...');
+                Swal.fire({
+                    title: 'Processing barcode...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
 
                 // Find location for this barcode
                 ajaxRequest('POST', '/warehouse/find-location', {
@@ -331,84 +368,122 @@
                         barcode: barcode
                     })
                     .then(response => {
+                        Swal.close();
                         if (response.error) {
-                            if (response.barcode_exists) {
-                                showError('This barcode already exists. Please scan a different item.');
-                            } else if (response.no_location) {
-                                showError('No available locations. Contact warehouse management.');
-                            } else {
-                                showError(response.error);
-                            }
-                            barcodeInput.value = '';
-                            barcodeInput.focus();
+                            handleErrorResponse(response);
                         } else if (response.barcode_valid) {
-                            document.getElementById('locationText').textContent = response.location;
-                            toggleElement(errorInfo, false);
-                            toggleElement(locationInfo, true);
-                            doneButton.dataset.locationId = response.location_id;
-                            toggleElement(doneButton, true);
-
-                            // Auto-focus the done button for quick confirmation
-                            doneButton.focus();
+                            handleSuccessResponse(response, barcode);
                         }
                     })
                     .catch(error => {
-                        showError(error.message || 'Error processing barcode. Please try again.');
-                        barcodeInput.value = '';
-                        barcodeInput.focus();
+                        Swal.close();
+                        showErrorAlert('Error processing barcode', 'Please try again or contact support');
                     });
             }
 
-            // Handle done button click
-            doneButton.addEventListener('click', function() {
-                const locationId = this.dataset.locationId;
-                const barcode = barcodeInput.value.trim();
+            function handleErrorResponse(response) {
+                let errorMessage = 'An error occurred';
+
+                if (response.barcode_exists) {
+                    errorMessage = 'This barcode already exists in the system. Please scan a different item.';
+                } else if (response.no_location) {
+                    errorMessage =
+                        'All storage locations are currently full for this product. Please contact warehouse management.';
+                } else if (response.error) {
+                    errorMessage = response.error;
+                }
+
+                showErrorAlert('Cannot Process Item', errorMessage);
+            }
+
+            function handleSuccessResponse(response, barcode) {
+                const location = response.location;
+
+                Swal.fire({
+                    title: 'Storage Location Found',
+                    html: `Please place this item at: <strong>${location}</strong>`,
+                    icon: 'success',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, I placed it',
+                    cancelButtonText: 'No, cancel',
+                    reverseButtons: true,
+                    focusConfirm: false,
+                    focusCancel: true,
+                    customClass: {
+                        confirmButton: 'btn btn-success mx-2',
+                        cancelButton: 'btn btn-danger mx-2'
+                    },
+                    buttonsStyling: false
+                }).then((result) => {
+                    resetScanningState();
+
+                    if (result.isConfirmed) {
+                        confirmItemPlacement(response, barcode);
+                    }
+                });
+            }
+
+            function confirmItemPlacement(response, barcode) {
+                Swal.fire({
+                    title: 'Saving item...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
 
                 ajaxRequest('POST', '/warehouse/store-item', {
                         product_id: productSelect.value,
                         batch_id: batchSelect.value,
                         barcode: barcode,
-                        location_id: locationId
+                        location_id: response.location_id
                     })
                     .then(response => {
+                        Swal.close();
                         if (response.success) {
-                            // Update SESSION counter
+                            // Update counters
                             sessionCount += response.stats.session_increment;
-                            document.getElementById('sessionCount').textContent = sessionCount;
+                            sessionCountElement.textContent = sessionCount;
 
-                            // Update TODAY'S counter (from server)
-                            const todayCounter = document.querySelector(
-                                '.text-muted strong:first-child');
-                            todayCounter.textContent = response.stats.today_inbound;
-
-                            // Reset for next scan
-                            barcodeInput.value = '';
-                            toggleElement(locationInfo, false);
-                            barcodeInput.focus();
+                            Toast.fire({
+                                icon: 'success',
+                                title: 'Item saved successfully!'
+                            });
                         }
                     })
                     .catch(error => {
-                        showError('Failed to save: ' + (error.message || 'Unknown error'));
+                        Swal.close();
+                        showErrorAlert('Save Failed', 'Failed to save item. Please try again.');
                     });
-            });
+            }
+
+            function showErrorAlert(title, message) {
+                return Swal.fire({
+                    title: title,
+                    text: message,
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                    customClass: {
+                        confirmButton: 'btn btn-danger py-2 px-4'
+                    },
+                    buttonsStyling: false,
+                    allowOutsideClick: false
+                }).then(() => {
+                    resetScanningState();
+                });
+            }
 
             // Handle back button
             document.getElementById('backButton').addEventListener('click', function() {
                 toggleElement(scanningCard, false);
                 toggleElement(productSelectionCard, true);
                 progressStep.textContent = '1';
-
-                // Reset scanning state
-                barcodeInput.value = '';
-                clearErrors();
-                toggleElement(doneButton, false);
-
-                // Focus back on product select
+                resetScanningState();
                 productSelect.focus();
             });
 
             // Initialize with product select focused
-            productSelect.focus();
+            focusWithMobileKeyboard(productSelect);
         });
     </script>
 @endpush

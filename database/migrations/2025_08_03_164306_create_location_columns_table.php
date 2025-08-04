@@ -11,18 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('locations', function (Blueprint $table) {
+        Schema::create('location_columns', function (Blueprint $table) {
             $table->id();
             $table->char('level', 1); // A-L
             $table->tinyInteger('height'); // 1-6
-            $table->tinyInteger('depth'); // 1-50
-            $table->foreignId('product_id')->nullable()->constrained();
-            $table->string('current_sku')->nullable(); // ADD THIS for SKU tracking
-            $table->boolean('reserved')->default(false);
+            $table->string('current_sku')->nullable(); // Tracks assigned SKU
             $table->timestamps();
 
-            $table->unique(['level', 'height', 'depth']);
-            $table->index(['level', 'height']); // ADD THIS for faster column queries
+            $table->unique(['level', 'height']);
         });
     }
 
@@ -31,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('locations');
+        Schema::dropIfExists('location_columns');
     }
 };

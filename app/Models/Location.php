@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Location extends Model
 {
-    protected $fillable = ['level', 'height', 'depth', 'product_id', 'reserved'];
+    protected $fillable = ['level', 'height', 'depth', 'product_id', 'reserved','current_sku'];
 
     public function product()
     {

@@ -13,11 +13,13 @@ return new class extends Migration
     {
         Schema::create('inventories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('item_id')->constrained();
+            $table->foreignId('item_id')->constrained()->unique(); // One item can't be in multiple locations
             $table->foreignId('location_id')->constrained();
             $table->timestamp('placed_at')->useCurrent();
             $table->timestamp('removed_at')->nullable();
             $table->timestamps();
+
+            $table->index(['location_id', 'removed_at']); // Better for active inventory queries
         });
     }
 
