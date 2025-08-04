@@ -186,17 +186,42 @@ class InboundController extends Controller
 
     private function findEmptyLocationForSku(Product $product): ?Location
     {
-        // Find any completely empty column
-        $location = Location::whereDoesntHave('inventory')
-            ->whereNull('current_sku')
-            ->orderByDesc('depth')
-            ->first();
+        // Get all columns that already have an assigned SKU
+        $occupiedColumns = DB::table('locations')
+            ->select('level', 'height')
+            ->whereNotNull('current_sku')
+            ->groupBy('level', 'height')
+            ->get()
+            ->keyBy(function ($item) {
+                return $item->level . $item->height;
+            });
 
-        if ($location) {
-            $location->update(['current_sku' => $product->sku]);
+        // Search through all possible columns in order
+        foreach (range('A', 'L') as $level) {
+            foreach (range(1, 6) as $height) {
+                $columnKey = $level . $height;
+
+                // Skip columns that already have an SKU assigned
+                if ($occupiedColumns->has($columnKey)) {
+                    continue;
+                }
+
+                // Find deepest available spot in this column
+                $location = Location::where('level', $level)
+                    ->where('height', $height)
+                    ->whereDoesntHave('inventory')
+                    ->whereNull('current_sku')
+                    ->orderByDesc('depth')
+                    ->first();
+
+                if ($location) {
+                    $location->update(['current_sku' => $product->sku]);
+                    return $location;
+                }
+            }
         }
 
-        return $location;
+        return null;
     }
 
     private function formatLocation(Location $location): string
