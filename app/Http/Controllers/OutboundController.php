@@ -2,126 +2,178 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Inventory;
-use App\Models\Location;
-use App\Models\Product;
+use App\Models\{Inventory, Item, Location, Product};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
-// app/Http/Controllers/OutboundController.php
 class OutboundController extends Controller
 {
-    // 1: Load Outbound Page
+    /**
+     * Display outbound page with statistics
+     */
     public function outbound()
     {
-        $products = Product::all();
-        $todayOutboundCount = Inventory::whereDate('removed_at', today())->count();
-
         return view('warehouse.outbound', [
-            'products' => $products,
-            'todayOutboundCount' => $todayOutboundCount
+            'products' => Product::orderBy('name')->get(),
+            'todayOutboundCount' => $this->getTodayOutboundCount(),
+            'topProducts' => $this->getTopPickedProducts()
         ]);
     }
 
-    // 2: Get Oldest Place for Outbound
+    /**
+     * Get next item for picking (FIFO)
+     */
     public function getNextItem(Request $request)
     {
         $request->validate(['product_id' => 'required|exists:products,id']);
 
-        // Find the next available item
-        $inventory = Inventory::whereHas('item.batch', function ($query) use ($request) {
-            $query->where('product_id', $request->product_id);
-        })
-            ->whereNull('removed_at')
-            ->orderBy('placed_at')
-            ->first();
+        try {
+            $inventory = $this->findOldestAvailableItem($request->product_id);
 
-        if (!$inventory) {
+            if (!$inventory) {
+                return response()->json([
+                    'error' => 'No items available for this product',
+                    'no_items' => true
+                ], 200);
+            }
+
+            return $this->formatPickResponse($inventory);
+        } catch (\Exception $e) {
             return response()->json([
-                'error' => 'No items available for this product',
-                'no_items' => true
-            ], 200);
+                'error' => 'Failed to find next item: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Check if this is the last item in its location
-        $location = $inventory->location;
-        $itemsInLocation = Inventory::where('location_id', $location->id)
-            ->whereNull('removed_at')
-            ->count();
-
-        return response()->json([
-            'location' => $location->level . $location->height . '-S' . str_pad($location->depth, 2, '0', STR_PAD_LEFT),
-            'barcode' => $inventory->item->barcode,
-            'location_id' => $location->id,
-            'is_last_in_location' => ($itemsInLocation === 1)
-        ]);
     }
 
-    // 3: Remove Product
+    /**
+     * Confirm item removal
+     */
     public function removeItem(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'barcode' => 'required|exists:items,barcode',
             'location_id' => 'required|exists:locations,id'
         ]);
 
-        DB::transaction(function () use ($request) {
-            // Mark item as removed
-            $inventory = Inventory::with('location')
-                ->whereHas('item', function ($query) use ($request) {
-                    $query->where('barcode', $request->barcode);
-                })
-                ->where('location_id', $request->location_id)
-                ->whereNull('removed_at')
-                ->firstOrFail();
-
-            $location = $inventory->location;
-            $inventory->update(['removed_at' => now()]);
-
-            // Shift items forward in this location column
-            $this->shiftItemsForward($location);
+        DB::transaction(function () use ($validated) {
+            $inventory = $this->validatePickRequest($validated);
+            $this->markItemAsPicked($inventory);
+            $this->shiftItemsForward($inventory->location);
         });
 
         return response()->json([
             'success' => true,
             'stats' => [
-                'today_outbound' => Inventory::whereDate('removed_at', today())->count()
+                'today_outbound' => $this->getTodayOutboundCount()
             ]
         ]);
     }
 
-    // 4: After Removing Shift other Products by 1 place ahead
-    private function shiftItemsForward(Location $removedLocation)
+    // ========== PRIVATE METHODS ========== //
+
+    private function getTodayOutboundCount()
     {
-        // Get all locations in the same column with LOWER depth (shallower), ordered descending
-        $locationsToShift = Location::where('level', $removedLocation->level)
-            ->where('height', $removedLocation->height)
-            ->where('depth', '<', $removedLocation->depth)
-            ->orderBy('depth', 'desc') // Process from deepest to shallowest
+        return Inventory::whereDate('removed_at', today())->count();
+    }
+
+    private function getTopPickedProducts()
+    {
+        return DB::table('inventories')
+            ->select(
+                'products.id as product_id',
+                'products.name as product_name',
+                DB::raw('count(*) as count')
+            )
+            ->join('items', 'inventories.item_id', '=', 'items.id')
+            ->join('batches', 'items.batch_id', '=', 'batches.id')
+            ->join('products', 'batches.product_id', '=', 'products.id')
+            ->whereDate('removed_at', today())
+            ->groupBy('products.id', 'products.name')
+            ->orderByDesc('count')
+            ->limit(5)
+            ->get();
+    }
+
+    private function findOldestAvailableItem($productId)
+    {
+        return Inventory::whereHas('item.batch', fn($q) => $q->where('product_id', $productId))
+            ->whereNull('removed_at')
+            ->with(['item.batch.product', 'location'])
+            ->orderBy('placed_at')
+            ->first();
+    }
+
+    private function formatPickResponse($inventory)
+    {
+        $isLastInLocation = $this->isLastItemInLocation($inventory->location);
+
+        return [
+            'location' => $this->formatLocationCode($inventory->location),
+            'barcode' => $inventory->item->barcode,
+            'location_id' => $inventory->location_id,
+            'is_last_in_location' => $isLastInLocation,
+            'product_name' => $inventory->item->batch->product->name
+        ];
+    }
+
+    private function isLastItemInLocation($location)
+    {
+        return Inventory::where('location_id', $location->id)
+            ->whereNull('removed_at')
+            ->count() === 1;
+    }
+
+    private function validatePickRequest($validated)
+    {
+        return Inventory::with(['location', 'item'])
+            ->whereHas('item', fn($q) => $q->where('barcode', $validated['barcode']))
+            ->where('location_id', $validated['location_id'])
+            ->whereNull('removed_at')
+            ->firstOrFail();
+    }
+
+    private function markItemAsPicked($inventory)
+    {
+        $inventory->update([
+            'removed_at' => Carbon::now(),
+        ]);
+    }
+
+    private function shiftItemsForward(Location $location)
+    {
+        // Get all items in the same column that need shifting
+        $itemsToShift = Inventory::select('inventories.*')
+            ->join('locations', 'inventories.location_id', '=', 'locations.id')
+            ->where('locations.level', $location->level)
+            ->where('locations.height', $location->height)
+            ->where('locations.depth', '<', $location->depth)
+            ->whereNull('inventories.removed_at')
+            ->orderByDesc('locations.depth')
+            ->with('location') // Eager load location relationship
             ->get();
 
-        foreach ($locationsToShift as $location) {
-            // Find active inventory item at this location
-            $inventory = Inventory::with('location')
-                ->where('location_id', $location->id)
-                ->whereNull('removed_at')
+        foreach ($itemsToShift as $inventory) {
+            $newDepth = $inventory->location->depth + 1;
+
+            $newLocation = Location::where('level', $location->level)
+                ->where('height', $location->height)
+                ->where('depth', $newDepth)
                 ->first();
 
-            if ($inventory) {
-                $newDepth = $location->depth + 1; // Move deeper
-
-                $newLocation = Location::where('level', $removedLocation->level)
-                    ->where('height', $removedLocation->height)
-                    ->where('depth', $newDepth)
-                    ->first();
-
-                if ($newLocation) {
-                    // Update the inventory item's location
-                    $inventory->update([
-                        'location_id' => $newLocation->id
-                    ]);
-                }
+            if ($newLocation) {
+                $inventory->update(['location_id' => $newLocation->id]);
             }
         }
+    }
+
+    private function formatLocationCode($location)
+    {
+        return sprintf(
+            '%s%s-S%02d',
+            $location->level,
+            $location->height,
+            $location->depth
+        );
     }
 }

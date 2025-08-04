@@ -1,115 +1,112 @@
-<!-- resources/views/warehouse/outbound.blade.php -->
 @extends('layouts.mobile')
 
 @section('content')
     <div class="container py-3">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
-                <!-- Header with progress indicator -->
+                <!-- Header Section -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h3 class="mb-0">Outbound Items</h3>
+                    <h3 class="mb-0">Outbound Picking</h3>
                     <div class="badge bg-primary rounded-pill px-3 py-2">
                         <span id="progressStep">1</span>/2
                     </div>
                 </div>
 
-                <!-- Product Selection Card (Step 1) -->
-                <div id="productSelectionCard" class="card shadow-sm border-0">
+                <!-- Stats Card -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-around text-center">
+                            <div>
+                                <div class="text-muted small">Today's Picks</div>
+                                <div class="h5 mb-0">{{ $todayOutboundCount }}</div>
+                            </div>
+                            @if ($topProducts->isNotEmpty())
+                                <div>
+                                    <div class="text-muted small">Top Product</div>
+                                    <div class="h5 mb-0">{{ $topProducts->first()->product_name }}</div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Selection Card -->
+                <div id="productSelectionCard" class="card shadow-sm border-0 mb-3">
                     <div class="card-body p-4">
-                        <h5 class="card-title mb-4">Select Product to Pick</h5>
+                        <h5 class="card-title mb-3">Select Product to Pick</h5>
 
                         <form id="outboundForm">
-                            <!-- Product Selection -->
-                            <div class="mb-4">
+                            <div class="mb-3">
                                 <label for="outboundProduct" class="form-label fw-bold">Product</label>
                                 <select class="form-select form-select-lg" id="outboundProduct" required>
                                     <option value="" selected disabled>Select Product</option>
                                     @foreach ($products as $product)
-                                        <option value="{{ $product->id }}" data-volume="{{ $product->volume_ml }}">
+                                        <option value="{{ $product->id }}">
                                             {{ $product->name }} ({{ $product->volume_ml }}ml)
                                         </option>
                                     @endforeach
                                 </select>
-                                <div class="form-text">Select the product you're picking</div>
                             </div>
 
-                            <!-- Next Button -->
                             <button type="submit" class="btn btn-primary btn-lg w-100 py-3">
-                                <i class="bi bi-box-arrow-up me-2"></i> Get Next Item
+                                <i class="bi bi-box-arrow-up me-2"></i> Find Next Item
                             </button>
                         </form>
                     </div>
                 </div>
 
-                <!-- Picking Card (Step 2) -->
+                <!-- Picking Interface -->
                 <div id="pickSection" class="card shadow-sm border-0 d-none">
                     <div class="card-body p-4">
-                        <!-- Current Selection Info -->
-                        <div class="alert alert-primary d-flex align-items-center mb-4">
-                            <div class="flex-shrink-0">
-                                <i class="bi bi-info-circle-fill fs-4"></i>
-                            </div>
-                            <div class="ms-3">
-                                <h6 class="alert-heading mb-1">Current Pick</h6>
-                                <p class="mb-0" id="pickProduct"></p>
-                            </div>
-                        </div>
-                        <!-- Location Info -->
-                        <div id="pickLocationInfo" class="alert alert-success d-flex align-items-center mb-4">
-                            <div class="flex-shrink-0">
-                                <i class="bi bi-geo-alt-fill fs-4"></i>
-                            </div>
-                            <div class="ms-3">
-                                <h6 class="alert-heading mb-1">Pick from:</h6>
-                                <p class="mb-0 fs-5 fw-bold" id="pickLocation"></p>
+                        <!-- Current Pick Info -->
+                        <div class="alert alert-primary mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+                                <div>
+                                    <h6 class="alert-heading mb-1" id="pickProductName"></h6>
+                                    <div class="small">Ready to pick</div>
+                                </div>
                             </div>
                         </div>
 
-                        <div id="noItemsAlert" class="alert alert-warning d-none">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            No more items available for this product
+                        <!-- Location Card -->
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-geo-alt-fill text-primary fs-3 me-3"></i>
+                                    <div>
+                                        <div class="text-muted small">Pick From</div>
+                                        <div class="h4 mb-0 fw-bold" id="pickLocation"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Barcode Input -->
+                        <!-- Barcode Scanner -->
                         <div class="mb-4">
                             <label for="pickBarcode" class="form-label fw-bold">Scan Barcode</label>
-                            <div class="input-group input-group-lg">
+                            <div class="input-group input-group-lg mb-2">
                                 <span class="input-group-text bg-light">
-                                    <i class="bi bi-upc"></i>
+                                    <i class="bi bi-upc-scan"></i>
                                 </span>
-                                <input type="text" class="form-control" id="pickBarcode"
-                                    placeholder="Scan or enter barcode" autofocus>
+                                <input type="text" class="form-control" id="pickBarcode" placeholder="Scan barcode"
+                                    autofocus>
                             </div>
-                            <div class="form-text">Scan the item barcode to confirm pick</div>
-                        </div>
-
-
-
-                        <!-- Error Info -->
-                        <div id="pickError" class="alert alert-danger d-flex align-items-center d-none mb-4">
-                            <div class="flex-shrink-0">
-                                <i class="bi bi-exclamation-triangle-fill fs-4"></i>
-                            </div>
-                            <div class="ms-3" id="pickErrorMessage"></div>
+                            <div class="form-text">Confirm item by scanning its barcode</div>
                         </div>
 
                         <!-- Action Buttons -->
-                        <div class="d-grid gap-3">
-                            <button id="confirmPick" class="btn btn-success btn-lg py-3 d-none">
-                                <i class="bi bi-check-circle-fill me-2"></i> Confirm Pick
-                            </button>
-
-                            <button id="backToProduct" class="btn btn-outline-secondary btn-lg py-3">
+                        <div class="d-grid gap-2">
+                            <button id="backButton" class="btn btn-outline-secondary btn-lg py-3">
                                 <i class="bi bi-arrow-left me-2"></i> Back to Selection
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Stats Footer -->
-                <div class="text-center mt-4 text-muted small">
-                    <div class="mb-1">Today's outbound items: <strong>{{ $todayOutboundCount ?? 0 }}</strong></div>
-                    <div>Current session: <strong id="sessionCount">0</strong></div>
+                <!-- Session Counter -->
+                <div class="text-center mt-3">
+                    <div class="text-muted small">Session Picks: <strong id="sessionCount">0</strong></div>
                 </div>
             </div>
         </div>
@@ -118,253 +115,275 @@
 
 @push('styles')
     <style>
-        /* Consistent with inbound styling */
+        /* Mobile-optimized styles */
         .card {
             border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .form-select-lg,
         .input-group-lg .form-control {
             font-size: 1rem;
             padding: 0.75rem 1rem;
+            height: auto;
         }
 
-        .alert {
-            border-radius: 10px;
+        .btn-lg {
+            padding: 0.75rem 1rem;
+            font-size: 1.1rem;
         }
 
-        /* Animation for scanning feedback */
-        @keyframes pulse {
+        /* Scanning feedback */
+        #pickBarcode.scan-success {
+            animation: pulseSuccess 1s ease;
+        }
+
+        @keyframes pulseSuccess {
             0% {
-                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
             }
 
-            50% {
-                transform: scale(1.02);
+            70% {
+                box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
             }
 
             100% {
-                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
             }
-        }
-
-        .scanning-active {
-            animation: pulse 1.5s infinite;
-            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
         }
     </style>
 @endpush
 
 @push('scripts')
-    <!-- Same dependencies as inbound -->
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
-        integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Setup CSRF token for all AJAX requests
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        $(document).ready(function() {
+            const Swal = window.Swal;
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+
             let sessionCount = 0;
-            let currentProductId = null;
+            let currentProduct = null;
+            let expectedBarcode = null;
+            let currentLocationId = null;
 
-            // DOM Elements
-            const outboundForm = document.getElementById('outboundForm');
-            const outboundProduct = document.getElementById('outboundProduct');
-            const pickSection = document.getElementById('pickSection');
-            const pickBarcode = document.getElementById('pickBarcode');
-            const confirmPick = document.getElementById('confirmPick');
-            const backToProduct = document.getElementById('backToProduct');
-            const pickError = document.getElementById('pickError');
-            const pickErrorMessage = document.getElementById('pickErrorMessage');
-            const progressStep = document.getElementById('progressStep');
-            const sessionCountElement = document.getElementById('sessionCount');
+            // Initialize with product select focused
+            $('#outboundProduct').focus();
 
-            // Helper functions
-            function toggleElement(element, show) {
-                element.classList.toggle('d-none', !show);
-            }
-            // New function to handle no items case
-            function showNoItemsAvailable() {
-                // Hide location info and scanner
-                toggleElement(document.getElementById('pickLocationInfo'), false);
-                toggleElement(pickBarcode.parentElement, false);
-                toggleElement(confirmPick, false);
-                // Show no items message
-                toggleElement(document.getElementById('noItemsAlert'), true);
-                // Focus back button for better UX
-                backToProduct.focus();
-            }
-
-            function showPickError(message) {
-                pickErrorMessage.textContent = message;
-                toggleElement(pickError, true);
-                pickBarcode.classList.add('is-invalid');
-                setTimeout(() => pickBarcode.classList.remove('is-invalid'), 2000);
-            }
-
-            function clearPickErrors() {
-                toggleElement(pickError, false);
-                pickBarcode.classList.remove('is-invalid');
-            }
-
-            function ajaxRequest(method, url, data) {
-                return fetch(url, {
-                    method: method,
-                    headers: {
-                        'X-CSRF-TOKEN': csrfToken,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: data ? JSON.stringify(data) : undefined
-                }).then(response => {
-                    if (!response.ok) throw new Error(response.statusText);
-                    return response.json();
-                });
-            }
-
-            // Form submission - get next item
-            outboundForm.addEventListener('submit', function(e) {
+            // Form submission
+            $('#outboundForm').on('submit', function(e) {
                 e.preventDefault();
-                currentProductId = outboundProduct.value;
+                currentProduct = $('#outboundProduct').val();
+                const productName = $('#outboundProduct option:selected').text();
 
-                if (!currentProductId) {
-                    showPickError('Please select a product');
+                if (!currentProduct) {
+                    showError('Please select a product');
                     return;
                 }
 
-                getNextItem(currentProductId);
+                findNextItem(currentProduct, productName);
             });
 
-            // Get next item to pick
-            function getNextItem(productId) {
-                ajaxRequest('POST', '/warehouse/next-item', {
-                        product_id: productId
-                    })
-                    .then(response => {
-                        // Hide no items alert by default
-                        toggleElement(document.getElementById('noItemsAlert'), false);
+            // Barcode scanning with enhanced feedback
+            $('#pickBarcode').on('input', debounce(function() {
+                const scannedBarcode = $(this).val().trim();
 
-                        // Error handling
+                if (!scannedBarcode || scannedBarcode.length < 3) return;
+
+                if (scannedBarcode === expectedBarcode) {
+                    $(this).addClass('scan-success');
+                    setTimeout(() => {
+                        $(this).removeClass('scan-success');
+                        showConfirmationDialog();
+                    }, 500);
+                } else {
+                    showBarcodeMismatchAlert(scannedBarcode);
+                }
+            }, 500));
+
+            // Back button
+            $('#backButton').click(function() {
+                resetToSelection();
+            });
+
+            // Core functions
+            function findNextItem(productId, productName) {
+                showLoading('Finding next item...');
+
+                $.ajax({
+                    url: '/warehouse/next-item',
+                    method: 'POST',
+                    data: {
+                        product_id: productId
+                    },
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        Swal.close();
+
                         if (response.error) {
                             if (response.no_items) {
-                                showNoItemsAvailable();
+                                showNoItemsAlert(productName);
                             } else {
-                                // For other errors, keep UI elements visible but show error
-                                toggleElement(document.getElementById('pickLocationInfo'), true);
-                                toggleElement(pickBarcode.parentElement, true);
-                                showPickError(response.error);
+                                showError(response.error);
                             }
                             return;
                         }
 
-                        // Validate response data
-                        if (!response.location_id || !response.barcode) {
-                            showNoItemsAvailable();
-                            return;
-                        }
+                        // Update UI
+                        $('#pickProductName').text(productName);
+                        $('#pickLocation').text(response.location);
+                        expectedBarcode = response.barcode;
+                        currentLocationId = response.location_id;
 
-                        // Normal successful case
-                        toggleElement(outboundForm.parentElement, false);
-                        toggleElement(pickSection, true);
-                        progressStep.textContent = '2';
+                        // Show picking interface
+                        $('#productSelectionCard').addClass('d-none');
+                        $('#pickSection').removeClass('d-none');
+                        $('#progressStep').text('2');
 
-                        // Update UI elements
-                        document.getElementById('pickProduct').textContent =
-                            outboundProduct.options[outboundProduct.selectedIndex].text;
-                        document.getElementById('pickLocation').textContent = response.location;
-
-                        // Ensure correct elements are visible
-                        toggleElement(document.getElementById('pickLocationInfo'), true);
-                        toggleElement(pickBarcode.parentElement, true);
-                        toggleElement(confirmPick, false); // Hide until barcode matches
-
-                        // Store expected data
-                        confirmPick.dataset.locationId = response.location_id;
-                        confirmPick.dataset.expectedBarcode = response.barcode;
-
-                        // Reset and focus
-                        pickBarcode.value = '';
-                        pickBarcode.disabled = false;
-                        pickBarcode.focus();
-                    })
-                    .catch(error => {
-                        showPickError('Error getting next item: ' + error.message);
-                        // Ensure UI is in consistent state even after errors
-                        toggleElement(document.getElementById('pickLocationInfo'), false);
-                        toggleElement(pickBarcode.parentElement, false);
-                    });
+                        // Reset scanner
+                        $('#pickBarcode').val('').focus();
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        showError('Failed to find next item. Please try again.');
+                    }
+                });
             }
 
-            // Barcode scanning
-            pickBarcode.addEventListener('input', function() {
-                const scannedBarcode = this.value.trim();
-                if (!scannedBarcode) return;
+            function showConfirmationDialog() {
+                Swal.fire({
+                    title: 'Confirm Pick',
+                    html: `Please confirm you're picking <strong>${$('#pickProductName').text()}</strong> from <strong>${$('#pickLocation').text()}</strong>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    confirmButtonText: 'Yes, confirm pick',
+                    cancelButtonText: 'Cancel',
+                    focusCancel: true,
+                    allowOutsideClick: false,
+                    preConfirm: () => {
+                        return processPick();
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $('#pickBarcode').val('').focus();
+                    }
+                });
+            }
 
-                const expectedBarcode = confirmPick.dataset.expectedBarcode;
+            function processPick() {
+                showLoading('Processing pick...');
 
-                if (scannedBarcode === expectedBarcode) {
-                    clearPickErrors();
-                    toggleElement(confirmPick, true);
-                    confirmPick.focus(); // Auto-focus confirm button
-                } else {
-                    showPickError('Barcode does not match expected item');
-                    toggleElement(confirmPick, false);
-                }
-            });
+                return new Promise((resolve) => {
+                    $.ajax({
+                        url: '/warehouse/remove-item',
+                        method: 'POST',
+                        data: {
+                            barcode: expectedBarcode,
+                            location_id: currentLocationId
+                        },
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function(response) {
+                            Swal.close();
+                            if (response.success) {
+                                // Update counters
+                                sessionCount++;
+                                $('#sessionCount').text(sessionCount);
 
-            // Confirm pick
-            confirmPick.addEventListener('click', function() {
-                const locationId = this.dataset.locationId;
-                const barcode = pickBarcode.value.trim();
+                                Toast.fire({
+                                    icon: 'success',
+                                    title: 'Pick confirmed!'
+                                });
 
-                ajaxRequest('POST', '/warehouse/remove-item', {
-                        barcode: barcode,
-                        location_id: locationId
-                    })
-                    .then(response => {
-                        if (response.success) {
-                            // Update counters
-                            sessionCount++;
-                            sessionCountElement.textContent = sessionCount;
-
-                            // Reset for next pick
-                            pickBarcode.value = '';
-                            toggleElement(confirmPick, false);
-                            clearPickErrors();
-
-                            // Get next item automatically
-                            getNextItem(currentProductId);
+                                // Get next item automatically
+                                findNextItem(currentProduct, $('#pickProductName').text());
+                            }
+                            resolve(true);
+                        },
+                        error: function(xhr) {
+                            Swal.close();
+                            showError('Failed to confirm pick. Please try again.');
+                            resolve(false);
                         }
-                    })
-                    .catch(error => {
-                        showPickError('Error confirming pick: ' + (error.message || 'Unknown error'));
                     });
-            });
+                });
+            }
 
-            // Back to product selection
-            backToProduct.addEventListener('click', function() {
-                toggleElement(pickSection, false);
-                toggleElement(outboundForm.parentElement, true);
-                progressStep.textContent = '1';
+            function showBarcodeMismatchAlert(scannedBarcode) {
+                Swal.fire({
+                    title: 'Barcode Mismatch',
+                    html: `Scanned barcode <strong>${scannedBarcode}</strong> doesn't match expected item`,
+                    icon: 'error',
+                    confirmButtonText: 'Try Again',
+                    focusConfirm: false,
+                    allowOutsideClick: false
+                }).then(() => {
+                    $('#pickBarcode').val('').focus();
+                });
+            }
 
-                // Reset all elements
-                toggleElement(document.getElementById('pickLocationInfo'), true);
-                toggleElement(pickBarcode.parentElement, true);
-                toggleElement(document.getElementById('noItemsAlert'), false);
+            function showNoItemsAlert(productName) {
+                Swal.fire({
+                    title: 'No Items Available',
+                    html: `No more items found for <strong>${productName}</strong>`,
+                    icon: 'info',
+                    confirmButtonText: 'OK',
+                    allowOutsideClick: false
+                }).then(() => {
+                    resetToSelection();
+                });
+            }
 
-                pickBarcode.value = '';
-                pickBarcode.disabled = false;
-                clearPickErrors();
-                toggleElement(confirmPick, false);
-                outboundProduct.focus();
-            });
+            function resetToSelection() {
+                $('#pickSection').addClass('d-none');
+                $('#productSelectionCard').removeClass('d-none');
+                $('#progressStep').text('1');
+                $('#outboundProduct').focus();
+            }
 
+            function showLoading(title) {
+                Swal.fire({
+                    title: title,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+            }
 
-            // Initialize with product select focused
-            outboundProduct.focus();
+            function showError(message) {
+                Toast.fire({
+                    icon: 'error',
+                    title: message
+                });
+            }
+
+            function debounce(func, wait) {
+                let timeout;
+                return function() {
+                    const context = this,
+                        args = arguments;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), wait);
+                };
+            }
         });
     </script>
 @endpush
