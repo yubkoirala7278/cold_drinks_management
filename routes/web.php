@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BatchController;
 use App\Http\Controllers\InboundController;
 use App\Http\Controllers\OutboundController;
 use App\Http\Controllers\ProductController;
@@ -36,3 +37,4 @@ Route::prefix('warehouse')->middleware('auth')->group(function () {
 });
 
 Route::resource('products', ProductController::class);
+Route::resource('batches', BatchController::class);

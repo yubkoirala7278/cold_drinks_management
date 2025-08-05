@@ -18,6 +18,13 @@
     <link href="/asset/css/icons.min.css" rel="stylesheet" type="text/css" />
     <!-- App Css-->
     <link href="/asset/css/app.min.css" id="app-style" rel="stylesheet" type="text/css" />
+    {{-- sweet alert cdn --}}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    {{-- toastify css --}}
+    @toastifyCss
+
+    {{-- custom css --}}
+    @stack('styles')
 
 </head>
 
@@ -36,10 +43,11 @@
                     <div class="navbar-brand-box">
                         <a href="index.html" class="logo logo-dark">
                             <span class="logo-sm">
-                                <img src="{{ asset('asset/images/coke.png') }}" alt="" height="30" class="ps-2">
+                                <img src="{{ asset('asset/images/coke.png') }}" alt="" height="30"
+                                    class="ps-2">
                             </span>
                             <span class="logo-lg">
-                                <img src="{{asset('asset/images/coke.png')}}" alt="" height="30"> <span
+                                <img src="{{ asset('asset/images/coke.png') }}" alt="" height="30"> <span
                                     class="logo-txt">Admin Panel</span>
                             </span>
                         </a>
@@ -142,10 +150,17 @@
                             </a>
                         </li>
 
+                        <li>
+                            <a href="{{ route('products.index') }}">
+                                <i data-feather="box"></i>
+                                <span data-key="t-dashboard">Product</span>
+                            </a>
+                        </li>
+
                          <li>
-                            <a href="{{route('products.index')}}">
-                               <i data-feather="box"></i>
-                                <span data-key="t-dashboard">Products</span>
+                            <a href="{{ route('batches.index') }}">
+                                <i data-feather="archive"></i>
+                                <span data-key="t-dashboard">Batch</span>
                             </a>
                         </li>
 
@@ -333,8 +348,28 @@
 
     <script src="/asset/js/app.js"></script>
 
+    {{-- toastify --}}
+    @if (session()->has('success') || session()->has('error'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                @if (session()->has('success'))
+                    toastify().success({!! json_encode(session('success')) !!});
+                @endif
+                @if (session()->has('error'))
+                    toastify().error({!! json_encode(session('error')) !!});
+                @endif
+            });
+        </script>
+    @endif
+
+    {{-- toastify js --}}
+    @toastifyJs
+
+    {{-- sweet alert --}}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     {{-- Custom Js --}}
-    @stack('script')
+    @stack('scripts')
 
 </body>
 

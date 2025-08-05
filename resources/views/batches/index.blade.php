@@ -5,17 +5,19 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="card-title">Product List</h4>
-                    <a href="{{ route('products.create') }}" class="btn btn-primary btn-sm">Add Product</a>
+                    <h4 class="card-title">Batch List</h4>
+                    <a href="{{ route('batches.create') }}" class="btn btn-primary btn-sm">Add Batch</a>
                 </div>
                 <div class="card-body">
-                    <table class="table table-bordered table-striped table-hover" id="products-table">
+                    <table class="table table-bordered table-striped table-hover" id="batches-table">
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Name</th>
-                                <th>SKU</th>
-                                <th>Volume (ml)</th>
+                                <th>Product Name</th>
+                                <th>Product SKU</th>
+                                <th>Batch Number</th>
+                                <th>Production Date</th>
+                                <th>Expiry Date</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -44,11 +46,11 @@
 
     <script>
         $(document).ready(function() {
-            $('#products-table').DataTable({
+            $('#batches-table').DataTable({
                 processing: true,
                 serverSide: true,
                 searchDelay: 1000,
-                ajax: "{{ route('products.index') }}",
+                ajax: "{{ route('batches.index') }}",
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
@@ -56,16 +58,24 @@
                         searchable: false
                     },
                     {
-                        data: 'name',
-                        name: 'name'
+                        data: 'product_name',
+                        name: 'product.name'
                     },
                     {
-                        data: 'sku',
-                        name: 'sku'
+                        data: 'product_sku',
+                        name: 'product.sku'
                     },
                     {
-                        data: 'volume_ml',
-                        name: 'volume_ml'
+                        data: 'batch_number',
+                        name: 'batch_number'
+                    },
+                    {
+                        data: 'production_date_formatted',
+                        name: 'production_date'
+                    },
+                    {
+                        data: 'expiry_date_formatted',
+                        name: 'expiry_date'
                     },
                     {
                         data: 'action',
@@ -80,13 +90,13 @@
                     }
                 ],
                 order: [
-                    [5, 'desc']
-                ],
+                    [7, 'desc']
+                ]
             });
 
             // SweetAlert for delete
             $(document).on('click', '.delete-btn', function() {
-                let productId = $(this).data('id');
+                let batchId = $(this).data('id');
 
                 Swal.fire({
                     title: 'Are you sure?',
@@ -99,7 +109,7 @@
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: "{{ url('products') }}/" + productId,
+                            url: "{{ url('batches') }}/" + batchId,
                             type: 'DELETE',
                             data: {
                                 "_token": "{{ csrf_token() }}"
@@ -110,7 +120,7 @@
                                     response.success,
                                     'success'
                                 ).then(() => {
-                                    $('#products-table').DataTable().ajax
+                                    $('#batches-table').DataTable().ajax
                                         .reload();
                                 });
                             },
