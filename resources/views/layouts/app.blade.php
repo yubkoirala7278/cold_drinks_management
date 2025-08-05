@@ -4,12 +4,12 @@
 <head>
 
     <meta charset="utf-8" />
-    <title>Emirates Web Ventures</title>
+    <title>Warehouse Management</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta content="Premium Multipurpose Admin & Dashboard Template" name="description" />
     <meta content="Themesbrand" name="author" />
     <!-- App favicon -->
-    <link rel="shortcut icon" href="/asset/images/favicon.ico">
+    <link rel="shortcut icon" href="{{ asset('asset/images/bottle.webp') }}">
 
 
     <!-- Bootstrap Css -->
@@ -36,10 +36,10 @@
                     <div class="navbar-brand-box">
                         <a href="index.html" class="logo logo-dark">
                             <span class="logo-sm">
-                                <img src="/asset/images/logo-sm.svg" alt="" height="24">
+                                <img src="{{ asset('asset/images/coke.png') }}" alt="" height="30" class="ps-2">
                             </span>
                             <span class="logo-lg">
-                                <img src="/asset/images/logo-sm.svg" alt="" height="24"> <span
+                                <img src="{{asset('asset/images/coke.png')}}" alt="" height="30"> <span
                                     class="logo-txt">Admin Panel</span>
                             </span>
                         </a>
@@ -50,7 +50,7 @@
                             </span>
                             <span class="logo-lg">
                                 <img src="/asset/images/logo-sm.svg" alt="" height="24"> <span
-                                    class="logo-txt">Emirates</span>
+                                    class="logo-txt">Warehouse Management</span>
                             </span>
                         </a>
                     </div>
@@ -62,7 +62,7 @@
                     <!-- App Search-->
                     <form class="app-search d-none d-lg-block">
                         <div class="position-relative">
-                            <input type="text" class="form-control" value="Emirates Web Ventures" disabled>
+                            <input type="text" class="form-control" value="Warehouse Management" disabled>
                         </div>
                     </form>
                 </div>
@@ -105,7 +105,7 @@
                         <button type="button" class="btn header-item bg-light-subtle border-start border-end"
                             id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true"
                             aria-expanded="false">
-                            <img class="rounded-circle header-profile-user" src="{{ asset('profile.avif') }}"
+                            <img class="rounded-circle header-profile-user" src="{{ asset('asset/images/admin.webp') }}"
                                 alt="Header Avatar">
                             <span class="d-none d-xl-inline-block ms-1 fw-medium">{{ Auth::user()->name }}</span>
                             <i class="mdi mdi-chevron-down d-none d-xl-inline-block"></i>
@@ -142,6 +142,14 @@
                             </a>
                         </li>
 
+                         <li>
+                            <a href="{{route('products.index')}}">
+                               <i data-feather="box"></i>
+                                <span data-key="t-dashboard">Products</span>
+                            </a>
+                        </li>
+
+
                     </ul>
 
                 </div>
@@ -167,20 +175,6 @@
                 </div> <!-- container-fluid -->
             </div>
             <!-- End Page-content -->
-
-
-            <footer class="footer">
-                <div class="container-fluid">
-                    <div class="row">
-                        <div class="col-sm-12">
-                            <script>
-                                document.write(new Date().getFullYear())
-                            </script> Jassa.
-                        </div>
-
-                    </div>
-                </div>
-            </footer>
         </div>
         <!-- end main content-->
 
