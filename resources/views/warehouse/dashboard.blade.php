@@ -1,24 +1,22 @@
-<!-- resources/views/warehouse/dashboard.blade.php -->
-@extends('layouts.mobile')
+@extends('backend.master')
 
 @section('content')
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-12 text-center mb-4">
-            <h2>Warehouse Management</h2>
-        </div>
-        
-        <div class="col-12 mb-3">
-            <a href="{{ route('warehouse.inbound') }}" class="btn btn-primary btn-block py-3">
-                <i class="fas fa-arrow-down"></i> Inbound
-            </a>
-        </div>
-        
+    <div class="row">
         <div class="col-12">
-            <a href="{{ route('warehouse.outbound') }}" class="btn btn-success btn-block py-3">
-                <i class="fas fa-arrow-up"></i> Outbound
-            </a>
+            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                <h4 class="mb-sm-0 font-size-18">Starter Page</h4>
+
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="javascript: void(0);">Pages</a></li>
+                        <li class="breadcrumb-item active">Starter Page</li>
+                    </ol>
+                </div>
+
+            </div>
+        </div>
+        <div class="col-12">
+            <div>Here will be the content</div>
         </div>
     </div>
-</div>
 @endsection

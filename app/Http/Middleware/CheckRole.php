@@ -18,7 +18,7 @@ class CheckRole
         $user = $request->user();
 
         if (!$user) {
-            return redirect('/login');
+            return redirect('/');
         }
 
         // Admin has access to everything

@@ -60,7 +60,7 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         @endif
-                        <form method="POST" action="{{ route('login') }}">
+                        <form method="POST" action="{{ route('admin.login') }}">
                             @csrf
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email address</label>

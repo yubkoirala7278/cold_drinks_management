@@ -23,7 +23,7 @@ class AuthController extends Controller
                     return redirect('/warehouse/outbound');
                 default:
                     Auth::logout();
-                    return back();
+                    return redirect()->route('login');
             }
         }
 
@@ -52,7 +52,7 @@ class AuthController extends Controller
                     return redirect()->intended('/warehouse/outbound');
                 default:
                     Auth::logout();
-                    return back()->with('error', 'Unauthorized role');
+                    return redirect()->route('login')->with('error', 'Unauthorized role');
             }
         }
 
@@ -68,6 +68,6 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return redirect('/');
     }
 }

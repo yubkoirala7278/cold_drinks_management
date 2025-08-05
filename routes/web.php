@@ -6,11 +6,9 @@ use App\Http\Controllers\OutboundController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login');
-
 // Authentication Routes
-Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
+Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login'])->name('admin.login');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Protected Warehouse Routes
