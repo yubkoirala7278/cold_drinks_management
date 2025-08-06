@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BarcodeController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\InboundController;
 use App\Http\Controllers\OutboundController;
@@ -38,3 +39,10 @@ Route::prefix('warehouse')->middleware('auth')->group(function () {
 
 Route::resource('products', ProductController::class);
 Route::resource('batches', BatchController::class);
+
+// routes/web.php
+Route::prefix('barcodes')->group(function () {
+    Route::get('/', [BarcodeController::class, 'index'])->name('barcodes.generate');
+    Route::post('/', [BarcodeController::class, 'generate'])->name('barcodes.generate.post');
+    Route::get('/export-pdf', [BarcodeController::class, 'exportPdf'])->name('barcodes.export.pdf');
+});
