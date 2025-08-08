@@ -144,7 +144,7 @@
                         <li class="menu-title" data-key="t-menu">Menu</li>
 
                         <li>
-                            <a href="index.html">
+                            <a href="{{ route('warehouse.dashboard') }}">
                                 <i data-feather="home"></i>
                                 <span data-key="t-dashboard">Dashboard</span>
                             </a>
@@ -157,16 +157,27 @@
                             </a>
                         </li>
 
-                         <li>
+                        <li>
                             <a href="{{ route('batches.index') }}">
                                 <i data-feather="archive"></i>
                                 <span data-key="t-dashboard">Batch</span>
                             </a>
                         </li>
 
-                         <li>
+
+
+                        <li>
+                            <a href="{{ route('location-reservations.index') }}">
+                                <i data-feather="bookmark"></i>
+
+
+                                <span data-key="t-dashboard">Reservation</span>
+                            </a>
+                        </li>
+
+                        <li>
                             <a href="{{ route('barcodes.generate') }}">
-                               <i data-feather="grid"></i>
+                                <i data-feather="grid"></i>
 
                                 <span data-key="t-dashboard">Barcode</span>
                             </a>

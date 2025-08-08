@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BarcodeController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\InboundController;
+use App\Http\Controllers\LocationReservationController;
 use App\Http\Controllers\OutboundController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\WarehouseController;
@@ -46,3 +47,7 @@ Route::prefix('barcodes')->group(function () {
     Route::post('/', [BarcodeController::class, 'generate'])->name('barcodes.generate.post');
     Route::get('/export-pdf', [BarcodeController::class, 'exportPdf'])->name('barcodes.export.pdf');
 });
+
+
+Route::resource('location-reservations', LocationReservationController::class)
+    ->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);

@@ -6,7 +6,7 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title">Product List</h4>
-                    <a href="{{ route('products.create') }}" class="btn btn-primary btn-sm">Add Product</a>
+                    <a href="{{ route('products.create') }}" class="btn btn-primary btn-sm"> <i class="fas fa-plus"></i> Add Product</a>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered table-striped table-hover" id="products-table">
