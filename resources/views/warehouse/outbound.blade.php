@@ -1,15 +1,71 @@
 @extends('layouts.mobile')
 
+
+@push('styles')
+    <style>
+        /* Mobile-optimized styles */
+        .card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-select-lg,
+        .input-group-lg .form-control {
+            font-size: 1rem;
+            padding: 0.75rem 1rem;
+            height: auto;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 1rem;
+            font-size: 1.1rem;
+        }
+
+        /* Scanning feedback */
+        #pickBarcode.scan-success {
+            animation: pulseSuccess 1s ease;
+        }
+
+        @keyframes pulseSuccess {
+            0% {
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+            }
+        }
+    </style>
+@endpush
+
 @section('content')
-    <div class="container py-3">
+    <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
+                <!-- Icon Logout -->
+                <div class="text-end" onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+                    style="cursor: pointer;">
+                    <i class="fa-solid fa-arrow-right-from-bracket fs-5"></i>
+                </div>
+
+                <!-- Hidden Logout Form -->
+                <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+                    @csrf
+                </form>
+
                 <!-- Header Section -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
+
                     <h3 class="mb-0">Outbound Picking</h3>
                     <div class="badge bg-primary rounded-pill px-3 py-2">
                         <span id="progressStep">1</span>/2
                     </div>
+
                 </div>
 
                 <!-- Stats Card -->
@@ -112,48 +168,6 @@
         </div>
     </div>
 @endsection
-
-@push('styles')
-    <style>
-        /* Mobile-optimized styles */
-        .card {
-            border-radius: 12px;
-            border: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-select-lg,
-        .input-group-lg .form-control {
-            font-size: 1rem;
-            padding: 0.75rem 1rem;
-            height: auto;
-        }
-
-        .btn-lg {
-            padding: 0.75rem 1rem;
-            font-size: 1.1rem;
-        }
-
-        /* Scanning feedback */
-        #pickBarcode.scan-success {
-            animation: pulseSuccess 1s ease;
-        }
-
-        @keyframes pulseSuccess {
-            0% {
-                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
-            }
-        }
-    </style>
-@endpush
 
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

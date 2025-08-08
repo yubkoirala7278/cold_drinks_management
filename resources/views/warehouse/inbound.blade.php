@@ -67,8 +67,18 @@
     <div class="container py-3">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
+                <!-- Icon Logout -->
+                <div class="text-end" onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+                    style="cursor: pointer;">
+                    <i class="fa-solid fa-arrow-right-from-bracket fs-5"></i>
+                </div>
+
+                <!-- Hidden Logout Form -->
+                <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+                    @csrf
+                </form>
                 <!-- Header with progress indicator -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
                     <h3 class="mb-0">Inbound Items</h3>
                     <div class="badge bg-primary rounded-pill px-3 py-2">
                         <span id="progressStep">1</span>/2
