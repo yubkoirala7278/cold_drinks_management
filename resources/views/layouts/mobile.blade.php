@@ -32,7 +32,9 @@
         .card {
             margin-bottom: 15px;
         }
+       
     </style>
+     @stack('styles')
 </head>
 
 <body>

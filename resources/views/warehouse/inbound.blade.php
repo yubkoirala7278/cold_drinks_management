@@ -48,9 +48,6 @@
         /* Better mobile alerts */
         .swal2-popup {
             font-size: 1rem !important;
-            width: 95% !important;
-            max-width: 340px !important;
-            padding: 1.2rem !important;
         }
 
         /* Larger buttons for mobile */
@@ -59,6 +56,37 @@
             padding: 10px 20px !important;
             margin: 0 5px !important;
             font-size: 1rem !important;
+        }
+
+        .highlight-location {
+            color: #fff;
+            /* White text for better contrast */
+            background: linear-gradient(90deg, #ff6b6b, #ff8e8e, #ff6b6b);
+            /* Gradient for a vibrant look */
+            background-size: 200% auto;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: pulseGradient 2s infinite ease-in-out;
+            display: inline-block;
+        }
+
+        @keyframes pulseGradient {
+            0% {
+                background-position: 0% 50%;
+                transform: scale(1);
+            }
+
+            50% {
+                background-position: 100% 50%;
+                transform: scale(1.05);
+            }
+
+            100% {
+                background-position: 0% 50%;
+                transform: scale(1);
+            }
         }
     </style>
 @endpush
@@ -411,7 +439,7 @@
 
                 Swal.fire({
                     title: 'Storage Location Found',
-                    html: `Please place this item at: <strong>${location}</strong>`,
+                    html: `Please place this item at: <span class="highlight-location">${location}</span>`,
                     icon: 'success',
                     showCancelButton: true,
                     confirmButtonText: 'Yes, I placed it',
@@ -421,7 +449,8 @@
                     focusCancel: true,
                     customClass: {
                         confirmButton: 'btn btn-success mx-2',
-                        cancelButton: 'btn btn-danger mx-2'
+                        cancelButton: 'btn btn-danger mx-2',
+                        popup: 'custom-swal-popup' // Optional: if you need to target the popup
                     },
                     buttonsStyling: false
                 }).then((result) => {

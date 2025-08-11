@@ -294,9 +294,9 @@
                         return processPick();
                     }
                 }).then((result) => {
-                    if (result.isConfirmed) {
-                        $('#pickBarcode').val('').focus();
-                    }
+                    // if (result.isConfirmed) {
+                    $('#pickBarcode').val('').focus();
+                    // }
                 });
             }
 
