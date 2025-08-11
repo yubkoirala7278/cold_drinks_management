@@ -99,16 +99,6 @@
                         </div>
                     </div>
 
-                    <div class="dropdown d-none d-sm-inline-block">
-                        <button type="button" class="btn header-item" id="mode-setting-btn">
-                            <i data-feather="moon" class="icon-lg layout-mode-dark"></i>
-                            <i data-feather="sun" class="icon-lg layout-mode-light"></i>
-                        </button>
-                    </div>
-
-
-
-
                     <div class="dropdown d-inline-block">
                         <button type="button" class="btn header-item bg-light-subtle border-start border-end"
                             id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true"
@@ -120,7 +110,7 @@
                         </button>
                         <div class="dropdown-menu dropdown-menu-end">
                             <!-- item-->
-                            <a class="dropdown-item" href="apps-contacts-profile.html"><i
+                            <a class="dropdown-item" href="{{ route('profile.show') }}"><i
                                     class="mdi mdi mdi-face-man font-size-16 align-middle me-1"></i> Profile</a>
                             <div class="dropdown-divider"></div>
                             <a class="dropdown-item" href="#"
@@ -190,6 +180,28 @@
                                 <span data-key="t-dashboard">Barcode</span>
                             </a>
                         </li>
+
+                        <li>
+                            <a href="{{ route('users.index') }}">
+                                <i data-feather="users"></i>
+
+                                <span data-key="t-dashboard">Users</span>
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="#"
+                                onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                                <i data-feather="log-out"></i>
+                                <span data-key="t-dashboard">Logout</span>
+                            </a>
+
+                            <form id="logout-form" action="{{ route('logout') }}" method="POST"
+                                style="display: none;">
+                                @csrf
+                            </form>
+                        </li>
+
 
 
                     </ul>

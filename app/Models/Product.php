@@ -17,4 +17,9 @@ class Product extends Model
     {
         return $this->hasMany(LocationReservation::class);
     }
+
+    public function items()
+    {
+        return $this->hasManyThrough(Item::class, Batch::class);
+    }
 }
