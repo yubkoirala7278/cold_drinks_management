@@ -119,13 +119,15 @@ class InboundController extends Controller
             return $location;
         }
 
-        // 2. Then check reserved locations
-        if ($location = $this->findInReservedLocations($product)) {
+        // 2. Prefer any empty location (search left-to-right A..L, heights 1..6)
+        // This ensures the warehouse fills from the front (A1) when multiple
+        // columns are empty, even if some columns previously held other SKUs.
+        if ($location = $this->findEmptyLocationForSku($product)) {
             return $location;
         }
 
-        // 3. Finally find any empty location
-        return $this->findEmptyLocationForSku($product);
+        // 3. Finally check reserved locations (product-specific reservations / zones)
+        return $this->findInReservedLocations($product);
     }
 
     private function findInExistingSkuColumns(Product $product): ?Location
@@ -208,21 +210,35 @@ class InboundController extends Controller
                 return $item->level . $item->height;
             });
 
+        // Also compute columns that currently have active inventory (placed and not removed).
+        // We prefer columns that have no active inventory even if their `current_sku` wasn't
+        // cleared yet by outbound logic.
+        $occupiedActiveColumns = DB::table('locations')
+            ->select('locations.level', 'locations.height')
+            ->join('inventories', 'locations.id', '=', 'inventories.location_id')
+            ->whereNull('inventories.removed_at')
+            ->groupBy('locations.level', 'locations.height')
+            ->get()
+            ->keyBy(function ($item) {
+                return $item->level . $item->height;
+            });
+
         // Search through all possible columns in order
         foreach (range('A', 'L') as $level) {
             foreach (range(1, 6) as $height) {
                 $columnKey = $level . $height;
 
-                // Skip columns that already have an SKU assigned
-                if ($occupiedColumns->has($columnKey)) {
+                // Skip columns that currently have active inventory
+                if ($occupiedActiveColumns->has($columnKey)) {
                     continue;
                 }
 
-                // Find deepest available spot in this column
+                // Find deepest available spot in this column. We allow selecting a
+                // location even if `current_sku` hasn't been cleared; the active
+                // inventory check above guarantees the column is empty.
                 $location = Location::where('level', $level)
                     ->where('height', $height)
                     ->whereDoesntHave('inventory')
-                    ->whereNull('current_sku')
                     ->orderByDesc('depth')
                     ->first();
 
