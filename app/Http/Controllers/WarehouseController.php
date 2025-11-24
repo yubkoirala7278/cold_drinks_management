@@ -16,6 +16,7 @@ class WarehouseController extends Controller
     public function dashboard()
     {
         // Product Distribution Data (top 8 products by item count)
+        // Count items that currently have active inventory (not removed)
         $products = Product::withCount(['items as items_count' => function ($query) {
             $query->whereHas('inventory', function ($q) {
                 $q->whereNull('removed_at');
@@ -33,6 +34,7 @@ class WarehouseController extends Controller
         ];
 
         // Location Utilization Data (all levels A-F)
+        // Use active inventory (inventories.removed_at IS NULL) to compute occupied/available
         $levels = ['A', 'B', 'C', 'D', 'E', 'F'];
         $locationUtilization = [
             'labels' => $levels,
@@ -41,20 +43,29 @@ class WarehouseController extends Controller
         ];
 
         foreach ($levels as $level) {
-            $locationUtilization['available'][] = Location::where('level', $level)
-                ->whereNull('current_sku')
-                ->count();
+            // Total locations at this level
+            $total = Location::where('level', $level)->count();
 
-            $locationUtilization['occupied'][] = Location::where('level', $level)
-                ->whereNotNull('current_sku')
-                ->count();
+            // Occupied based on active inventory per location (group by level,height)
+            $occupied = Location::select('locations.id')
+                ->join('inventories', 'locations.id', '=', 'inventories.location_id')
+                ->where('locations.level', $level)
+                ->whereNull('inventories.removed_at')
+                ->distinct()
+                ->count('locations.id');
+
+            $locationUtilization['occupied'][] = $occupied;
+            $locationUtilization['available'][] = max(0, $total - $occupied);
         }
 
         return view('warehouse.dashboard', [
             'stats' => [
                 'products' => Product::count(),
                 'batches' => Batch::count(),
-                'available_locations' => Location::whereNull('current_sku')->count(),
+                // Compute available locations as those without any active inventory
+                'available_locations' => Location::whereNotIn('id', function ($q) {
+                    $q->select('location_id')->from('inventories')->whereNull('removed_at');
+                })->count(),
                 'reserved_locations' =>  LocationReservation::count(),
                 'users' => User::count()
             ],

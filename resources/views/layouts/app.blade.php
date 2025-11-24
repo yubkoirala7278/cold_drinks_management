@@ -173,13 +173,13 @@
                             </a>
                         </li>
 
-                        <li>
+                        {{-- <li>
                             <a href="{{ route('barcodes.generate') }}">
                                 <i data-feather="grid"></i>
 
                                 <span data-key="t-dashboard">Barcode</span>
                             </a>
-                        </li>
+                        </li> --}}
 
                         <li>
                             <a href="{{ route('users.index') }}">
