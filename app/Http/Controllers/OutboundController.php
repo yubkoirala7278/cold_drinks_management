@@ -52,7 +52,10 @@ class OutboundController extends Controller
     public function removeItem(Request $request)
     {
         $validated = $request->validate([
-            'barcode' => 'required|exists:items,barcode',
+            // Barcode may be the system outbound barcode (e.g. '11111111') or the real
+            // item barcode. Do not require existence in items table here because the
+            // system barcode will not exist as an item barcode.
+            'barcode' => 'required',
             'location_id' => 'required|exists:locations,id'
         ]);
 
@@ -126,6 +129,18 @@ class OutboundController extends Controller
 
     private function validatePickRequest($validated)
     {
+        $outboundCode = config('warehouse.outbound_barcode');
+
+        // If the scanned barcode equals the system outbound barcode, identify the
+        // inventory by the provided location_id (UI supplies the location for the
+        // picked item). Otherwise, find the inventory by the scanned barcode + location.
+        if ($validated['barcode'] === $outboundCode) {
+            return Inventory::with(['location', 'item'])
+                ->where('location_id', $validated['location_id'])
+                ->whereNull('removed_at')
+                ->firstOrFail();
+        }
+
         return Inventory::with(['location', 'item'])
             ->whereHas('item', fn($q) => $q->where('barcode', $validated['barcode']))
             ->where('location_id', $validated['location_id'])

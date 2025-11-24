@@ -176,6 +176,8 @@
 
     <script>
         $(document).ready(function() {
+            // System outbound barcode (client-wide single pick barcode)
+            const OUTBOUND_CODE = '{{ config('warehouse.outbound_barcode') }}';
             const Swal = window.Swal;
             const Toast = Swal.mixin({
                 toast: true,
@@ -217,7 +219,8 @@
 
                 if (!scannedBarcode || scannedBarcode.length < 3) return;
 
-                if (scannedBarcode === expectedBarcode) {
+                // Only accept the configured system outbound barcode for confirming picks
+                if (scannedBarcode === OUTBOUND_CODE) {
                     $(this).addClass('scan-success');
                     setTimeout(() => {
                         $(this).removeClass('scan-success');
@@ -308,7 +311,8 @@
                         url: '/warehouse/remove-item',
                         method: 'POST',
                         data: {
-                            barcode: expectedBarcode,
+                            // Send the system outbound barcode so server can resolve by location
+                            barcode: OUTBOUND_CODE,
                             location_id: currentLocationId
                         },
                         headers: {

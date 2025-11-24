@@ -36,10 +36,12 @@ class InboundController extends Controller
             'barcode' => 'required'
         ]);
 
-        if (Item::where('barcode', $validated['barcode'])->exists()) {
+        // Enforce use of the configured system inbound barcode
+        $inboundCode = config('warehouse.inbound_barcode');
+        if ($validated['barcode'] !== $inboundCode) {
             return response()->json([
-                'error' => 'Barcode already exists',
-                'barcode_exists' => true
+                'error' => 'Invalid inbound barcode. Please scan the system inbound barcode.',
+                'invalid_barcode' => true
             ], 200);
         }
 
@@ -66,9 +68,19 @@ class InboundController extends Controller
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
             'batch_id' => 'required|exists:batches,id',
-            'barcode' => 'required|unique:items,barcode',
+            // Allow duplicate barcodes because a system-wide inbound barcode may be used
+            'barcode' => 'required',
             'location_id' => 'required|exists:locations,id'
         ]);
+
+        // Validate inbound barcode matches system code before storing
+        $inboundCode = config('warehouse.inbound_barcode');
+        if ($validated['barcode'] !== $inboundCode) {
+            return response()->json([
+                'error' => 'Invalid inbound barcode. Please scan the system inbound barcode.',
+                'invalid_barcode' => true
+            ], 200);
+        }
 
         DB::transaction(function () use ($validated) {
             $item = Item::create([

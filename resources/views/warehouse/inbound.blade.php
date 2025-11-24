@@ -236,6 +236,9 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
 
+            // System inbound barcode (single code for all inbound items)
+            const INBOUND_CODE = '{{ config('warehouse.inbound_barcode') }}';
+
             // Setup CSRF token for all AJAX requests
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             let typingTimer;
@@ -386,6 +389,12 @@
             function processBarcode() {
                 const barcode = barcodeInput.value.trim();
                 if (!barcode) return;
+
+                // Require the system inbound barcode only
+                if (barcode !== INBOUND_CODE) {
+                    showErrorAlert('Invalid Barcode', `Please scan the system inbound barcode: ${INBOUND_CODE}`);
+                    return;
+                }
 
                 const productId = productSelect.value;
                 const batchId = batchSelect.value;
