@@ -7,12 +7,19 @@ use Illuminate\Support\Facades\Route;
 // Protected Warehouse Routes
 Route::prefix('warehouse')->middleware('auth')->group(function () {
 
-    // Inbound routes (accessible by admin and inbound_staff)
+    // Inbound routes (accessible by inbound_staff)
     Route::middleware('role:inbound_staff')->group(function () {
         Route::get('/inbound', [InboundController::class, 'inbound'])->name('warehouse.inbound');
         Route::get('/batches/{product}', [InboundController::class, 'getBatches']);
         Route::post('/find-location', [InboundController::class, 'findLocation']);
         Route::post('/store-item', [InboundController::class, 'storeItem']);
+    });
+
+    // Bulk inbound routes (accessible by admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/bulk-inbound', [InboundController::class, 'bulkInbound'])->name('warehouse.bulk-inbound');
+        Route::get('/bulk-inbound/locations', [InboundController::class, 'getAvailableLocations']);
+        Route::post('/bulk-inbound/store', [InboundController::class, 'storeBulkInbound']);
     });
 
     // Matrix Dashboard (accessible by all authenticated users)

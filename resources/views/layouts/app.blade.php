@@ -173,12 +173,30 @@
                             </a>
                         </li>
 
+                        <li>
+                            <a href="{{ route('warehouse.bulk-inbound') }}">
+                                <i data-feather="truck"></i>
+                                <span data-key="t-dashboard">Inbound</span>
+                            </a>
+                        </li>
+
+                          <li>
+                            <a href="{{ route('warehouse.matrix') }}">
+                               <i data-feather="aperture"></i>
+
+
+                                <span data-key="t-dashboard">Matrix</span>
+                            </a>
+                        </li>
+
+
+
                         {{-- <li>
                             <a href="{{ route('barcodes.generate') }}">
-                                <i data-feather="grid"></i>
+                        <i data-feather="grid"></i>
 
-                                <span data-key="t-dashboard">Barcode</span>
-                            </a>
+                        <span data-key="t-dashboard">Barcode</span>
+                        </a>
                         </li> --}}
 
                         <li>
@@ -392,14 +410,16 @@
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 @if (session()->has('success'))
-                    toastify().success({!! json_encode(session('success')) !!});
+                    toastr.success(@json(session('success')));
                 @endif
+
                 @if (session()->has('error'))
-                    toastify().error({!! json_encode(session('error')) !!});
+                    toastr.error(@json(session('error')));
                 @endif
             });
         </script>
     @endif
+
 
     {{-- toastify js --}}
     @toastifyJs

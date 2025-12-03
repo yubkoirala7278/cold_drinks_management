@@ -110,6 +110,165 @@ class InboundController extends Controller
         ]);
     }
 
+    // Display bulk inbound page (for admin to sync existing warehouse stock)
+    public function bulkInbound()
+    {
+        $products = Product::with('batches')->get();
+        return view('warehouse.bulk-inbound', ['products' => $products]);
+    }
+
+    // Get available locations for bulk inbound
+    public function getAvailableLocations(Request $request)
+    {
+        $request->validate(['product_id' => 'required|exists:products,id']);
+        $productId = $request->product_id;
+        $product = Product::findOrFail($productId);
+
+        // Get available locations following same logic as regular inbound
+        $locations = [];
+
+        // 1. Existing SKU columns
+        $existingColumns = DB::table('locations')
+            ->select('level', 'height')
+            ->where('current_sku', $product->sku)
+            ->groupBy('level', 'height')
+            ->orderBy('level')
+            ->orderBy('height')
+            ->get();
+
+        foreach ($existingColumns as $column) {
+            $availableCount = Location::where('level', $column->level)
+                ->where('height', $column->height)
+                ->whereDoesntHave('inventory', fn($q) => $q->whereNull('removed_at'))
+                ->count();
+
+            if ($availableCount > 0) {
+                $locations[] = [
+                    'level' => $column->level,
+                    'height' => $column->height,
+                    'available' => $availableCount,
+                    'type' => 'existing_sku'
+                ];
+            }
+        }
+
+        // 2. Reserved locations
+        $reservedColumns = LocationReservation::where('product_id', $productId)->get();
+        foreach ($reservedColumns as $reservation) {
+            $availableCount = Location::where('level', $reservation->level)
+                ->where('height', $reservation->height)
+                ->whereDoesntHave('inventory', fn($q) => $q->whereNull('removed_at'))
+                ->count();
+
+            if ($availableCount > 0) {
+                $locations[] = [
+                    'level' => $reservation->level,
+                    'height' => $reservation->height,
+                    'available' => $availableCount,
+                    'type' => 'reserved'
+                ];
+            }
+        }
+
+        // 3. Empty columns
+        $reservedForOthers = LocationReservation::where('product_id', '!=', $productId)
+            ->get()
+            ->mapWithKeys(fn($r) => [$r->level . $r->height => true])
+            ->toArray();
+
+        $activeColumns = DB::table('locations')
+            ->select('locations.level', 'locations.height')
+            ->join('inventories', 'locations.id', '=', 'inventories.location_id')
+            ->whereNull('inventories.removed_at')
+            ->groupBy('locations.level', 'locations.height')
+            ->get()
+            ->mapWithKeys(fn($c) => [$c->level . $c->height => true])
+            ->toArray();
+
+        foreach (range('A', 'L') as $level) {
+            foreach (range(1, 6) as $height) {
+                $columnKey = $level . $height;
+                if (!isset($reservedForOthers[$columnKey]) && !isset($activeColumns[$columnKey])) {
+                    $locations[] = [
+                        'level' => $level,
+                        'height' => $height,
+                        'available' => 50,
+                        'type' => 'empty'
+                    ];
+                }
+            }
+        }
+
+        return response()->json($locations);
+    }
+
+    // Bulk add items to specific locations
+    public function storeBulkInbound(Request $request)
+    {
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.batch_id' => 'required|exists:batches,id',
+            'items.*.level' => 'required|in:' . implode(',', range('A', 'L')),
+            'items.*.height' => 'required|integer|between:1,6',
+            'items.*.quantity' => 'required|integer|min:1|max:50'
+        ]);
+
+        $createdCount = 0;
+        $errors = [];
+
+        DB::transaction(function () use ($validated, &$createdCount, &$errors) {
+            foreach ($validated['items'] as $index => $itemData) {
+                try {
+                    $product = Product::findOrFail($itemData['product_id']);
+                    $batch = Batch::findOrFail($itemData['batch_id']);
+
+                    // Get available locations in the specified column
+                    $availableLocations = Location::where('level', $itemData['level'])
+                        ->where('height', $itemData['height'])
+                        ->whereDoesntHave('inventory', fn($q) => $q->whereNull('removed_at'))
+                        ->orderByDesc('depth')
+                        ->limit($itemData['quantity'])
+                        ->get();
+
+                    if ($availableLocations->count() < $itemData['quantity']) {
+                        $errors[] = "Item {$index}: Not enough space in {$itemData['level']}{$itemData['height']}. Only {$availableLocations->count()} slots available.";
+                        return;
+                    }
+
+                    foreach ($availableLocations as $location) {
+                        $item = Item::create([
+                            'batch_id' => $itemData['batch_id'],
+                            'barcode' => 'BULK-' . time() . '-' . uniqid()
+                        ]);
+
+                        Inventory::create([
+                            'item_id' => $item->id,
+                            'location_id' => $location->id,
+                            'placed_at' => now()->subHours(rand(0, 720)) // Random time up to 30 days ago
+                        ]);
+
+                        // Update location's current SKU if empty
+                        if (!$location->current_sku) {
+                            $location->update(['current_sku' => $product->sku]);
+                        }
+
+                        $createdCount++;
+                    }
+                } catch (\Exception $e) {
+                    $errors[] = "Item {$index}: " . $e->getMessage();
+                }
+            }
+        });
+
+        return response()->json([
+            'success' => $createdCount > 0,
+            'created_count' => $createdCount,
+            'errors' => $errors,
+            'message' => $createdCount > 0 ? "{$createdCount} items added successfully" : 'No items were added'
+        ]);
+    }
+
     // ========== PRIVATE METHODS ========== //
 
     private function findBestLocation(Product $product): ?Location
