@@ -114,36 +114,48 @@ class InboundController extends Controller
 
     private function findBestLocation(Product $product): ?Location
     {
-        // 1. First try to continue in existing columns with same SKU
-        if ($location = $this->findInExistingSkuColumns($product)) {
-            return $location;
+        // Check if this product has any reserved locations
+        $hasReservations = LocationReservation::where('product_id', $product->id)->exists();
+
+        // If product has reserved columns, prioritize them first
+        if ($hasReservations) {
+            // 1. First check reserved locations (top priority for reserved products)
+            if ($location = $this->findInReservedLocations($product)) {
+                return $location;
+            }
+
+            // 2. Then try existing SKU columns
+            if ($location = $this->findInExistingSkuColumns($product)) {
+                return $location;
+            }
+        } else {
+            // No reservations: prioritize existing SKU columns, then empty columns
+            // 1. Try to continue in existing columns with same SKU
+            if ($location = $this->findInExistingSkuColumns($product)) {
+                return $location;
+            }
         }
 
-        // 2. Prefer any empty location (search left-to-right A..L, heights 1..6)
-        // This ensures the warehouse fills from the front (A1) when multiple
-        // columns are empty, even if some columns previously held other SKUs.
-        if ($location = $this->findEmptyLocationForSku($product)) {
-            return $location;
-        }
-
-        // 3. Finally check reserved locations (product-specific reservations / zones)
-        return $this->findInReservedLocations($product);
+        // 3. Find any empty level+height (not reserved for another product)
+        return $this->findEmptyLocationForSku($product);
     }
 
     private function findInExistingSkuColumns(Product $product): ?Location
     {
-        // Find all columns containing this SKU
+        // Find all columns (level+height) that currently have this product's SKU
         $columns = DB::table('locations')
             ->select('level', 'height')
             ->where('current_sku', $product->sku)
             ->groupBy('level', 'height')
+            ->orderBy('level')
+            ->orderBy('height')
             ->get();
 
         foreach ($columns as $column) {
-            // Get deepest available spot in this column
+            // Find deepest available slot in this column (no active inventory at that depth)
             $location = Location::where('level', $column->level)
                 ->where('height', $column->height)
-                ->whereDoesntHave('inventory')
+                ->whereDoesntHave('inventory', fn($q) => $q->whereNull('removed_at'))
                 ->orderByDesc('depth')
                 ->first();
 
@@ -157,38 +169,24 @@ class InboundController extends Controller
 
     private function findInReservedLocations(Product $product): ?Location
     {
-        // Check specifically reserved locations first
-        $reserved = Location::where('product_id', $product->id)
-            ->where('reserved', true)
-            ->whereDoesntHave('inventory')
-            ->orderByDesc('depth')
-            ->first();
-
-        if ($reserved) {
-            $reserved->update(['current_sku' => $product->sku]);
-            return $reserved;
-        }
-
-        // Then check reserved zones
-        return $this->findInReservedZones($product);
-    }
-
-    private function findInReservedZones(Product $product): ?Location
-    {
-        $reservations = LocationReservation::where('product_id', $product->id)->get();
+        // Get all LocationReservation records for this product (columns reserved for this SKU)
+        $reservations = LocationReservation::where('product_id', $product->id)
+            ->orderBy('level')
+            ->orderBy('height')
+            ->get();
 
         foreach ($reservations as $reservation) {
+            // Find deepest empty spot in this reserved column
             $location = Location::where('level', $reservation->level)
                 ->where('height', $reservation->height)
-                ->whereDoesntHave('inventory')
-                ->whereNull('current_sku')
+                ->whereDoesntHave('inventory', fn($q) => $q->whereNull('removed_at'))
                 ->orderByDesc('depth')
                 ->first();
 
             if ($location) {
+                // Mark location with product info and SKU
                 $location->update([
                     'product_id' => $product->id,
-                    'reserved' => true,
                     'current_sku' => $product->sku
                 ]);
                 return $location;
@@ -200,45 +198,41 @@ class InboundController extends Controller
 
     private function findEmptyLocationForSku(Product $product): ?Location
     {
-        // Get all columns that already have an assigned SKU
-        $occupiedColumns = DB::table('locations')
-            ->select('level', 'height')
-            ->whereNotNull('current_sku')
-            ->groupBy('level', 'height')
+        // Get all columns reserved for OTHER products (cannot use these)
+        $reservedForOthers = LocationReservation::where('product_id', '!=', $product->id)
             ->get()
-            ->keyBy(function ($item) {
-                return $item->level . $item->height;
-            });
+            ->mapWithKeys(fn($r) => [$r->level . $r->height => true])
+            ->toArray();
 
-        // Also compute columns that currently have active inventory (placed and not removed).
-        // We prefer columns that have no active inventory even if their `current_sku` wasn't
-        // cleared yet by outbound logic.
-        $occupiedActiveColumns = DB::table('locations')
+        // Get columns with active inventory (currently occupied)
+        $activeColumns = DB::table('locations')
             ->select('locations.level', 'locations.height')
             ->join('inventories', 'locations.id', '=', 'inventories.location_id')
             ->whereNull('inventories.removed_at')
             ->groupBy('locations.level', 'locations.height')
             ->get()
-            ->keyBy(function ($item) {
-                return $item->level . $item->height;
-            });
+            ->mapWithKeys(fn($c) => [$c->level . $c->height => true])
+            ->toArray();
 
-        // Search through all possible columns in order
+        // Search all columns left-to-right (A..L, heights 1..6) for first available
         foreach (range('A', 'L') as $level) {
             foreach (range(1, 6) as $height) {
                 $columnKey = $level . $height;
 
-                // Skip columns that currently have active inventory
-                if ($occupiedActiveColumns->has($columnKey)) {
+                // Skip if reserved for another product
+                if (isset($reservedForOthers[$columnKey])) {
                     continue;
                 }
 
-                // Find deepest available spot in this column. We allow selecting a
-                // location even if `current_sku` hasn't been cleared; the active
-                // inventory check above guarantees the column is empty.
+                // Skip if has active inventory
+                if (isset($activeColumns[$columnKey])) {
+                    continue;
+                }
+
+                // Find deepest available spot in this empty column
                 $location = Location::where('level', $level)
                     ->where('height', $height)
-                    ->whereDoesntHave('inventory')
+                    ->whereDoesntHave('inventory', fn($q) => $q->whereNull('removed_at'))
                     ->orderByDesc('depth')
                     ->first();
 
