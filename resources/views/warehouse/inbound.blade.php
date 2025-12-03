@@ -237,7 +237,7 @@
         document.addEventListener('DOMContentLoaded', function() {
 
             // System inbound barcode (single code for all inbound items)
-            const INBOUND_CODE = '{{ config('warehouse.inbound_barcode') }}';
+            const INBOUND_CODE = '{{ config("warehouse.inbound_barcode") }}';
 
             // Setup CSRF token for all AJAX requests
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
